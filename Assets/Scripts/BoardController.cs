@@ -1,14 +1,17 @@
-﻿using UnityEngine;
+﻿using System.Runtime.InteropServices;
+using UnityEngine;
 
 public class BoardController : TouchController
 {
 	public string @checked;
 	public GameObject squarePrefab;
 
+	public Sprite empty;
 	public Sprite checkedX;
 	public Sprite checkedO;
-	public Color onTouch;
-	public Color lineColor;
+	public Sprite onTouch;
+	public Sprite lineH;
+	public Sprite lineD;
 
 	public int initSizeX = 20;
 	public int initSizeY = 20;
@@ -18,138 +21,97 @@ public class BoardController : TouchController
 
 	private int @checkedLayerIndx;
 
-	private int offsetX;
-	private int offsetY;
-
-	private byte[,] squares;
-
+	private Board board;
 	private byte currPlayer = 1;
 
-	private const byte playerX = 1;
-	private const byte playerO = 2;
-
 	private GameObject currObj;
-	private int currX;
-	private int currY;
+	private Vector2Int currPos;
 
-	private Vector2Int[,] direction =
-	{
-		{ new Vector2Int { x = -1, y = 0 }, new Vector2Int { x = 1, y = 0 } },
-		{ new Vector2Int { x = -1, y = -1 }, new Vector2Int { x = 1, y = 1 } },
-		{ new Vector2Int { x = 0, y = -1 }, new Vector2Int { x = 0, y = 1 } },
-		{ new Vector2Int { x = 1, y = -1 }, new Vector2Int { x = -1, y = 1 } }
-	};
+	private bool finished;
 
 	void Start()
 	{
 		@checkedLayerIndx = LayerMask.NameToLayer(@checked);
 
-		offsetX = initSizeX / 2;
-		offsetY = initSizeY / 2;
+		board = new Board(initSizeX, initSizeY);
 
-		squares = new byte[initSizeY, initSizeX];
 		for (int y = 0; y < initSizeY; y++)
 			for (int x = 0; x < initSizeX; x++)
 			{
-				var obj = (GameObject) Instantiate(squarePrefab, new Vector3(x - offsetX, y - offsetY, 0), new Quaternion());
+				var obj = (GameObject) Instantiate(squarePrefab, new Vector3(x, y, 0), new Quaternion());
 				obj.transform.parent = transform;
 			}
+
+		Camera.main.transform.position = new Vector3(initSizeX / 2f, initSizeY / 2f, Camera.main.transform.position.z);
+	}
+
+	protected override void Update()
+	{
+		if (finished)
+		{
+			//enabled = false;
+			return;
+		}
+		base.Update();
 	}
 
 	protected override void TouchStart(GameObject gObj)
 	{
 		currObj = gObj;
 		Vector3 position = currObj.transform.position;
-		currX = (int)position.x + offsetX;
-		currY = (int)position.y + offsetY;
+		currPos = position;
 		var sRenderer = (SpriteRenderer)currObj.renderer;
-		sRenderer.color = onTouch;
+		sRenderer.sprite = onTouch;
 	}
 
 	protected override void TouchCanceled()
 	{
 		var sRenderer = (SpriteRenderer)currObj.renderer;
-		sRenderer.color = Color.white;
+		sRenderer.sprite = empty;
 	}
 
 	protected override void TouchEnded()
 	{
-		bool isPlayerX = currPlayer == playerX;
+		bool isPlayerX = currPlayer == Board.playerX;
 
 		currObj.layer = @checkedLayerIndx;
 		var sRenderer = (SpriteRenderer)currObj.renderer;
 		sRenderer.color = Color.white;
 		sRenderer.sprite = (isPlayerX ? checkedX : checkedO);
 
-		squares[currY, currX] = currPlayer;
+		board[currPos] = currPlayer;
 
-		CheckIfWon();
-
-		currPlayer = (isPlayerX ? playerO : playerX);
-	}
-
-	private void CheckIfWon()
-	{
-		Vector2Int[] vertex = { new Vector2Int { x = currX, y = currY }, new Vector2Int { x = currX, y = currY } };
-
-
-		int sizeY = squares.GetLength(0);
-		int sizeX = squares.GetLength(1);
-
-		int dir;
-		var d1Len = direction.GetLength(0);
-		var d2Len = direction.GetLength(1);
-
-		for (dir = 0; dir < d1Len; dir++)
+		WinnLine winnLine = board.CheckIfWon(currPos);
+		if (winnLine != null)
 		{
-			int numInRow = 1;
-
-			for (int i = 0; i < d2Len; i++)
-			{
-				int x = currX + direction[dir, i].x;
-				int y = currY + direction[dir, i].y;
-
-				while (y < sizeY && x < sizeX && squares[y, x] == currPlayer)
-				{
-					vertex[i].x = x;
-					vertex[i].y = y;
-					numInRow++;
-					x += direction[dir, i].x;
-					y += direction[dir, i].y;
-				}
-			}
-
-			if (numInRow >= 5)
-			{
-				DrawLine(vertex, dir);
-				enabled = false;
-				return;
-			}
-		}
-	}
-
-	private void DrawLine(Vector2Int[] vertex, int dir)
-	{
-		var line = GetComponent<LineRenderer>();
-		if (line == null)
-		{
-			line = gameObject.AddComponent<LineRenderer>();
-			line.material = new Material(Shader.Find("Mobile/Particles/Alpha Blended"));
-			line.SetVertexCount(2);
-			line.SetWidth(0.15f, 0.15f);
-			line.SetColors(lineColor, lineColor);
-			line.useWorldSpace = true;
+			DrawLine(winnLine);
+			finished = true;
 		}
 
-		line.SetPosition(0, new Vector3(vertex[0].x - offsetX + squareCenter * direction[dir, 0].x,
-										vertex[0].y - offsetY + squareCenter * direction[dir, 0].y, -5));
-		line.SetPosition(1, new Vector3(vertex[1].x - offsetX + squareCenter * direction[dir, 1].x, 
-										vertex[1].y - offsetY + squareCenter * direction[dir, 1].y, -5));
+		currPlayer = (isPlayerX ? Board.playerO : Board.playerX);
 	}
-}
 
-public struct Vector2Int
-{
-	public int x;
-	public int y;
+	private void DrawLine(WinnLine line)
+	{
+		var obj = new GameObject();
+		var sRenderer = obj.AddComponent<SpriteRenderer>();
+
+		obj.transform.parent = transform;
+		obj.transform.position = Vector3.Lerp(line.startPt, line.endPt, 0.5f) + Vector3.back;
+
+		if (line.direction[0] == Board.direction[0][0])
+			sRenderer.sprite = lineH;
+		else if (line.direction[0] == Board.direction[1][0])
+			sRenderer.sprite = lineD;
+		else if (line.direction[0] == Board.direction[2][0])
+		{
+			sRenderer.sprite = lineH;
+			obj.transform.rotation = Quaternion.AngleAxis(-90, Vector3.forward);
+		}
+		else if (line.direction[0] == Board.direction[3][0])
+		{
+			sRenderer.sprite = lineD;
+			obj.transform.rotation = Quaternion.AngleAxis(-90, Vector3.forward);
+		}
+	}
 }

@@ -2,8 +2,6 @@
 
 public class TouchController : MonoBehaviour
 {
-	protected const float squareCenter = 0.5f;
-
 	public float maxZoomTouch = 7f;
 	public float maxMoveTouchCancel = 7f;
 	public LayerMask notChecked;
@@ -13,10 +11,7 @@ public class TouchController : MonoBehaviour
 
 	protected virtual void Update()
 	{
-		if (enabled)
-		{
-			CheckTouch();
-		}
+		CheckTouch();
 	}
 
 	private void CheckTouch()

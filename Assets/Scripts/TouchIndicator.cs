@@ -3,68 +3,52 @@ using UnityEngine;
 
 public class TouchIndicator : MonoBehaviour
 {
-
 	public GameObject touchIndicator;
 	private List<GameObject> touchIndicators = new List<GameObject>();
-	private List<GameObject> otherIndicators = new List<GameObject>();
+	private GameObject midpoint;
 
-	// Use this for initialization
-	private void Start()
-	{
-	}
-
-	// Update is called once per frame
 	private void Update()
 	{
-		if (touchIndicator != null)
+		if (touchIndicator == null)
+			return;
+
+		int i;
+		for (i = 0; i < Input.touchCount; i++)
 		{
-			int i;
-			for (i = 0; i < Input.touchCount; i++)
-			{
-				var touch = Input.GetTouch(i);
-				Vector3 pos = Camera.main.ScreenToWorldPoint(touch.position);
-				pos.z = 0;
+			var touch = Input.GetTouch(i);
+			Vector3 pos = Camera.main.ScreenToWorldPoint(touch.position);
+			pos.z = 0;
 
-				if (touchIndicators.Count <= i)
-				{
-					var obj = (GameObject)Instantiate(touchIndicator, pos, new Quaternion());
-					obj.transform.parent = transform;
-					touchIndicators.Add(obj);
-				}
-				else
-					touchIndicators[i].transform.position = pos;
-			}
-			while (i < touchIndicators.Count)
+			if (touchIndicators.Count <= i)
 			{
-				Destroy(touchIndicators[i]);
-				touchIndicators.RemoveAt(i);
+				var obj = (GameObject)Instantiate(touchIndicator, pos, new Quaternion());
+				obj.transform.parent = transform;
+				touchIndicators.Add(obj);
 			}
+			else
+				touchIndicators[i].transform.position = pos;
 		}
-	}
+		while (i < touchIndicators.Count)
+		{
+			Destroy(touchIndicators[i]);
+			touchIndicators.RemoveAt(i);
+		}
 
-	public int SetIndicator(int index, Vector2 pos)
-	{
-		int i = index - 1;
-		if (i >= 0 && i < otherIndicators.Count)
-			otherIndicators[i].transform.position = pos;
+		if (Input.touchCount == 2)
+		{
+			Vector2 pos = Camera.main.ScreenToWorldPoint(Vector3.Lerp(Input.GetTouch(0).position, Input.GetTouch(1).position, 0.5f));
+			if (midpoint == null)
+			{
+				midpoint = (GameObject)Instantiate(touchIndicator, pos, new Quaternion());
+				midpoint.transform.parent = transform;
+			}
+			else
+				midpoint.transform.position = pos;
+		}
 		else
 		{
-			var obj = (GameObject) Instantiate(touchIndicator, pos, new Quaternion());
-			obj.transform.parent = transform;
-			otherIndicators.Add(obj);
-			index = otherIndicators.Count;
+			Destroy(midpoint);
+			midpoint = null;
 		}
-		return index;
-	}
-
-	public int RemoveIndicator(int i)
-	{
-		i--;
-		if (i >= 0 && i < otherIndicators.Count)
-		{
-			Destroy(otherIndicators[i]);
-			otherIndicators.RemoveAt(i);
-		}
-		return 0;
 	}
 }
