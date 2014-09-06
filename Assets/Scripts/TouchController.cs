@@ -4,10 +4,10 @@ public class TouchController : MonoBehaviour
 {
 	public float maxZoomTouch = 7f;
 	public float maxMoveTouchCancel = 7f;
-	public LayerMask notChecked;
+	public LayerMask notCheckedMask;
 
 	private bool touching = false;
-	public float totalMovement;
+	private float totalMovement;
 
 	protected virtual void Update()
 	{
@@ -31,12 +31,17 @@ public class TouchController : MonoBehaviour
 			{
 				case TouchPhase.Began:
 					totalMovement = 0f;
+					if (GUIController.InGui(touch.position))
+					{
+						touching = false;
+						return;
+					}
 					var position = Camera.main.ScreenToWorldPoint(touch.position);
-					var obj = Physics2D.OverlapCircle(position, 0.1f, notChecked);
+					var obj = GetSquare(position, notCheckedMask);
 					if (obj != null)
 					{
 						touching = true;
-						TouchStart(obj.gameObject);
+						TouchStart(obj);
 					}
 					break;
 				case TouchPhase.Ended:
@@ -62,6 +67,12 @@ public class TouchController : MonoBehaviour
 					break;
 			}
 		}
+	}
+
+	protected GameObject GetSquare(Vector2 position, LayerMask mask)
+	{
+		Collider2D collider = Physics2D.OverlapCircle(position, 0.1f, mask);
+		return collider == null ? null : collider.gameObject;
 	}
 
 	protected virtual void TouchStart(GameObject gObj) { }

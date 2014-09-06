@@ -1,9 +1,6 @@
 ﻿
 public class Board
 {
-	public const byte playerX = 1;
-	public const byte playerO = 2;
-
 	public static readonly Vector2Int[][] direction =
 	{
 		new[] { -Vector2Int.right , Vector2Int.right },									// left,		right
@@ -12,33 +9,28 @@ public class Board
 		new[] { Vector2Int.one, -Vector2Int.one }										// right up,	left down
 	};
 
-	private byte[,] squares;
+	private Player[,] squares;
+	private Vector2Int offset = Vector2Int.zero;
 
 	public Board(int sizeX, int sizeY)
 	{
-		squares = new byte[sizeX, sizeY];
+		squares = new Player[sizeY, sizeX];
 	}
 
-	public byte this[int x, int y]
+	public Player this[Vector2Int index]
 	{
-		get { return squares[y, x]; }
-		set { squares[y, x] = value; }
+		get { return squares[index.y + offset.y, index.x + offset.x]; }
+		set { squares[index.y + offset.y, index.x + offset.x] = value; }
 	}
 
-	public byte this[Vector2Int index]
-	{
-		get { return squares[index.y, index.x]; }
-		set { squares[index.y, index.x] = value; }
-	}
-
-	public WinnLine CheckIfWon(Vector2Int point)
+	public WinLine CheckIfWon(Vector2Int point)
 	{
 		Vector2Int[] line = { point, point };
 
 		int sizeY = squares.GetLength(0);
 		int sizeX = squares.GetLength(1);
 
-		byte currPlayer = this[point];
+		Player currPlayer = this[point];
 
 		foreach (Vector2Int[] dir in direction)
 		{
@@ -56,9 +48,14 @@ public class Board
 			}
 
 			if (numInRow >= 5)
-				return new WinnLine(line[0], line[1], dir);
+				return new WinLine(line[0], line[1], dir);
 		}
 		return null;
+	}
+
+	public void IncreaseSize(Vector2Int squaresToAdd)
+	{
+		
 	}
 }
 
