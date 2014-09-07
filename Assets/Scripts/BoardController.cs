@@ -3,6 +3,7 @@ using UnityEngine;
 
 public class BoardController : TouchController
 {
+	public float bezel = 0.2f;
 	public string @notChecked;
 	public string @checked;
 	public GameObject squarePrefab;
@@ -16,11 +17,12 @@ public class BoardController : TouchController
 	public Sprite lineH;
 	public Sprite lineD;
 
-	public int initSizeX = 20;
-	public int initSizeY = 20;
+	public int sizeIncrement = 5;
 
-	public int maxSizeX = 50;
-	public int maxSizeY = 50;
+	public int maxSizeX = 100;
+	public int maxSizeY = 100;
+
+	private Vector2 squareSize;
 
 	private LayerMask anySquare;
 	private int notCheckedLayerIndx;
@@ -38,28 +40,18 @@ public class BoardController : TouchController
 
 	void Start()
 	{
+		squareSize = new Vector2(squarePrefab.transform.localScale.x, squarePrefab.transform.localScale.y); 
+
 		anySquare = LayerMask.GetMask(new[] { @notChecked, @checked });
 		@notCheckedLayerIndx = LayerMask.NameToLayer(@notChecked);
 		@checkedLayerIndx = LayerMask.NameToLayer(@checked);
 
 		undoActions = new List<Vector2Int>();
 		redoActions = new List<Vector2Int>();
-
-		board = new Board(initSizeX, initSizeY);
-
-		for (int y = 0; y < initSizeY; y++)
-			for (int x = 0; x < initSizeX; x++)
-			{
-				var obj = (GameObject) Instantiate(squarePrefab, new Vector3(x, y, 0), new Quaternion());
-				obj.transform.parent = transform;
-			}
-
-		Camera.main.transform.position = new Vector3(initSizeX / 2f, initSizeY / 2f, Camera.main.transform.position.z);
-
+		board = new Board();
 		SetPlayerText(Player.X);
 
-		GUIController.Redo += GUIController_Redo;
-		GUIController.Undo += GUIController_Undo;
+		onEnable();
 	}
 
 	protected override void Update()
@@ -94,14 +86,90 @@ public class BoardController : TouchController
 
 	void onEnable()
 	{
+		CameraController.IncreaseSize += CameraController_IncreaseSize;
 		GUIController.Redo += GUIController_Redo;
 		GUIController.Undo += GUIController_Undo;
 	}
 
 	void onDisable()
 	{
+		CameraController.IncreaseSize -= CameraController_IncreaseSize;
 		GUIController.Redo -= GUIController_Redo;
 		GUIController.Undo -= GUIController_Undo;
+	}
+
+	private Vector2[] CameraController_IncreaseSize(RectInt sides)
+	{
+		var squaresToAdd = sides * sizeIncrement;
+		Vector2Int currSize = board.getSize();
+
+		var ll = board.getOffset() * -1;
+		var ur = currSize + ll;
+
+		bool isMaxX = currSize.x + squaresToAdd.xMax > maxSizeX;
+		bool isMaxY = currSize.y + squaresToAdd.yMax > maxSizeY;
+
+		if (isMaxX && isMaxY)
+			return GetBoardSize(ll, ur, Vector2.one);
+
+		if (isMaxX)
+		{
+			squaresToAdd.x = 0;
+			squaresToAdd.width = 0;
+		}
+		if (isMaxY)
+		{
+			squaresToAdd.y = 0;
+			squaresToAdd.height = 0;
+		}
+
+		board.IncreaseSize(squaresToAdd);
+
+		AddSquares(ll, ur, squaresToAdd);
+
+		return GetBoardSize(ll, ur, Vector2.zero);
+	}
+
+	private void AddSquares(Vector2Int ll, Vector2Int ur, RectInt squaresToAdd)
+	{
+		var newLl = new Vector2Int(ll.x - squaresToAdd.x, ll.y - squaresToAdd.y);
+		var newUr = new Vector2Int(ur.x + squaresToAdd.width, ur.y + squaresToAdd.height);
+
+		if (ur.y < newUr.y || newLl.y < ll.y)
+			for (int x = newLl.x; x < newUr.x; x++) //horizontal
+			{
+				for (int y = ur.y; y < newUr.y; y++) //up + diagonals
+					AddSquare(x, y);
+
+				for (int y = newLl.y; y < ll.y; y++) //down + diagonals
+					AddSquare(x, y);
+			}
+
+		if (ur.x < newUr.x || newLl.x < ll.x)
+			for (int y = ll.y; y < ur.y; y++) //horizontal
+			{
+				for (int x = ur.x; x < newUr.x; x++) //right
+					AddSquare(x, y);
+
+				for (int x = newLl.x; x < ll.x; x++) //left
+					AddSquare(x, y);
+			}
+	}
+
+	private void AddSquare(int x, int y)
+	{
+		var obj = (GameObject)Instantiate(squarePrefab, new Vector3(x, y, 0), new Quaternion());
+		obj.transform.parent = transform;
+	}
+
+	private Vector2[] GetBoardSize(Vector2Int ll, Vector2Int ur, Vector2 locked)
+	{
+		var halfWidth = squareSize / 2f;
+		var bezelVector = Vector2.one * bezel;
+		var LL = (Vector2) ll - halfWidth - bezelVector;
+		var UR = (Vector2) ur - halfWidth + bezelVector;
+
+		return new[] { LL, UR, locked };
 	}
 
 	private void SetMark(Vector2Int pos, Player player, GameObject square)
