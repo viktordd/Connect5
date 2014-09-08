@@ -12,7 +12,7 @@ public class CameraController : MonoBehaviour
 
 	public static event Func<RectInt, BoardSize> IncreaseSize;
 
-	private Vector2 prevT0Pos, prevT1Pos;
+	private Vector2 prevTPos, prevT0Pos, prevT1Pos;
 
 	private bool init;
 	private byte initSizeCheck;
@@ -99,12 +99,12 @@ public class CameraController : MonoBehaviour
 				Touch t = Input.GetTouch(0);
 				if (t.phase == TouchPhase.Moved)
 				{
-					Vector3 delta = camera.ScreenToWorldPoint(t.position - prevT0Pos);
+					Vector3 delta = camera.ScreenToWorldPoint(t.position - prevTPos);
 					Vector3 bl = camera.ScreenToWorldPoint(Vector2.zero);
 					cameraDelta = bl - delta;
 					posChanged = true;
 				}
-				prevT0Pos = t.position;
+				prevTPos = t.position;
 				break;
 
 			case 2:
@@ -130,9 +130,15 @@ public class CameraController : MonoBehaviour
 					cameraDelta = midpointPrev - midpoint;
 					posChanged = true;
 				}
+				if (t0.phase == TouchPhase.Canceled || t0.phase == TouchPhase.Ended)
+					prevTPos = t0.position;
+				if (t1.phase == TouchPhase.Canceled || t1.phase == TouchPhase.Ended)
+					prevTPos = t1.position;
+
 				prevT0Pos = t0.position;
 				prevT1Pos = t1.position;
 				break;
+
 		}
 
 		if (posChanged)
