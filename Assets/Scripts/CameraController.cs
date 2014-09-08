@@ -131,9 +131,9 @@ public class CameraController : MonoBehaviour
 					posChanged = true;
 				}
 				if (t0.phase == TouchPhase.Canceled || t0.phase == TouchPhase.Ended)
-					prevTPos = t0.position;
-				if (t1.phase == TouchPhase.Canceled || t1.phase == TouchPhase.Ended)
 					prevTPos = t1.position;
+				if (t1.phase == TouchPhase.Canceled || t1.phase == TouchPhase.Ended)
+					prevTPos = t0.position;
 
 				prevT0Pos = t0.position;
 				prevT1Pos = t1.position;
