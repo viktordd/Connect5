@@ -1,4 +1,5 @@
-﻿using UnityEngine;
+﻿using System;
+using UnityEngine;
 
 public struct Vector2Int
 {
@@ -120,6 +121,11 @@ public struct Vector2Int
 		this.y *= scale.y;
 	}
 
+	public override string ToString()
+	{
+		return String.Format("({0}, {1})", x, y);
+	}
+
 	public override int GetHashCode()
 	{
 		return this.x.GetHashCode() ^ this.y.GetHashCode() << 2;
@@ -129,9 +135,9 @@ public struct Vector2Int
 	{
 		if (!(other is Vector2Int))
 			return false;
-		Vector2Int Vector2Int = (Vector2Int)other;
-		if (this.x.Equals(Vector2Int.x))
-			return this.y.Equals(Vector2Int.y);
+		var vector2Int = (Vector2Int)other;
+		if (this.x.Equals(vector2Int.x))
+			return this.y.Equals(vector2Int.y);
 		else
 			return false;
 	}

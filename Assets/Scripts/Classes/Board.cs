@@ -1,4 +1,6 @@
 ﻿
+using UnityEngine;
+
 public class Board
 {
 	public static readonly Vector2Int[][] direction =
@@ -12,21 +14,17 @@ public class Board
 	private Player[,] squares;
 	private Vector2Int offset;
 
-	public Board()
-	{
-		squares = new Player[0, 0];
-		offset = Vector2Int.zero;
-	}
+	public Board() : this(0, 0) { }
 	public Board(int sizeX, int sizeY)
 	{
-		squares = new Player[sizeY, sizeX];
+		squares = new Player[sizeX, sizeY];
 		offset = Vector2Int.zero;
 	}
 
 	public Player this[Vector2Int index]
 	{
-		get { return squares[index.y + offset.y, index.x + offset.x]; }
-		set { squares[index.y + offset.y, index.x + offset.x] = value; }
+		get { return squares[index.x + offset.x, index.y + offset.y]; }
+		set { squares[index.x + offset.x, index.y + offset.y] = value; }
 	}
 
 	public Vector2Int getOffset()
@@ -36,17 +34,18 @@ public class Board
 
 	public Vector2Int getSize()
 	{
-		return new Vector2Int(squares.GetLength(1), squares.GetLength(0));
+		return new Vector2Int(squares.GetLength(0), squares.GetLength(1));
 	}
 
 	public WinLine CheckIfWon(Vector2Int point)
 	{
+		point += offset;
 		Vector2Int[] line = { point, point };
 
-		int sizeY = squares.GetLength(0);
-		int sizeX = squares.GetLength(1);
+		int sizeX = squares.GetLength(0);
+		int sizeY = squares.GetLength(1);
 
-		Player currPlayer = this[point];
+		var currPlayer = squares[point.x, point.y];
 
 		foreach (Vector2Int[] dir in direction)
 		{
@@ -55,7 +54,7 @@ public class Board
 			{
 				Vector2Int curr = point + dir[i];
 
-				while (0 <= curr.y && curr.y < sizeY && 0 <= curr.x && curr.x < sizeX && this[curr] == currPlayer)
+				while (0 <= curr.x && curr.x < sizeX && 0 <= curr.y && curr.y < sizeY && squares[curr.x, curr.y] == currPlayer)
 				{
 					line[i] = curr;
 					numInRow++;
@@ -64,21 +63,21 @@ public class Board
 			}
 
 			if (numInRow >= 5)
-				return new WinLine(line[0], line[1], dir);
+				return new WinLine(line[0] - offset, line[1] - offset, dir);
 		}
 		return null;
 	}
 
 	public void IncreaseSize(RectInt squaresToAdd)
 	{
-		int sizeY = squares.GetLength(0);
-		int sizeX = squares.GetLength(1);
+		int sizeX = squares.GetLength(0);
+		int sizeY = squares.GetLength(1);
 
-		var newS = new Player[sizeY + squaresToAdd.yMax, sizeX + squaresToAdd.xMax];
+		var newS = new Player[sizeX + squaresToAdd.xMax, sizeY + squaresToAdd.yMax];
 
 		for (int y = 0; y < sizeY; y++)
 			for (int x = 0; x < sizeX; x++)
-				newS[y + squaresToAdd.y, x + squaresToAdd.x] = squares[y, x];
+				newS[x + squaresToAdd.x, y + squaresToAdd.y] = squares[x, y];
 
 		squares = newS;
 		offset = new Vector2Int(offset.x + squaresToAdd.x, offset.y + squaresToAdd.y);

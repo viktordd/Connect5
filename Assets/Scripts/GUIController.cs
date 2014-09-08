@@ -31,6 +31,7 @@ public class GUIController : MonoBehaviour
 	private static Rect textPos;
 
 	public static Player currPlayer = Player.X;
+	public static bool playerDisabled;
 
 	public static event Action<float> ScreenChange;
 
@@ -47,8 +48,11 @@ public class GUIController : MonoBehaviour
 	{
 		TestForScreenChange();
 
-		GUI.DrawTexture(textPos, player);
-		GUI.DrawTexture(textPos, currPlayer == Player.X ? blue : red);
+		if (!playerDisabled)
+		{
+			GUI.DrawTexture(textPos, player);
+			GUI.DrawTexture(textPos, currPlayer == Player.X ? blue : red);
+		}
 
 		GUI.Box(boxPos, "");
 
@@ -82,12 +86,17 @@ public class GUIController : MonoBehaviour
 			currWidth = Screen.width;
 			currHeight = Screen.height;
 
-			float screenRatio = Screen.width / (float) Screen.height;
+			float screenRatio = ScreenRatio;
 			CalcPositions(screenRatio);
 
 			if (ScreenChange != null)
 				ScreenChange(screenRatio);
 		}
+	}
+
+	public static float ScreenRatio
+	{
+		get { return Screen.width / (float) Screen.height; }
 	}
 
 	void CalcPositions(float screenRatio)

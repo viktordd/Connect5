@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using UnityEngine;
 
 public class BoardController : TouchController
@@ -40,7 +41,7 @@ public class BoardController : TouchController
 
 	void Start()
 	{
-		squareSize = new Vector2(squarePrefab.transform.localScale.x, squarePrefab.transform.localScale.y); 
+		squareSize = new Vector2(squarePrefab.transform.localScale.x, squarePrefab.transform.localScale.y);
 
 		anySquare = LayerMask.GetMask(new[] { @notChecked, @checked });
 		@notCheckedLayerIndx = LayerMask.NameToLayer(@notChecked);
@@ -50,8 +51,6 @@ public class BoardController : TouchController
 		redoActions = new List<Vector2Int>();
 		board = new Board();
 		SetPlayerText(Player.X);
-
-		onEnable();
 	}
 
 	protected override void Update()
@@ -84,54 +83,93 @@ public class BoardController : TouchController
 		AddUndo(currPos);
 	}
 
-	void onEnable()
+	protected override void TouchEnabledChanged()
+	{
+		SetPlayerText(currPlayer);
+	}
+
+	void OnEnable()
 	{
 		CameraController.IncreaseSize += CameraController_IncreaseSize;
 		GUIController.Redo += GUIController_Redo;
 		GUIController.Undo += GUIController_Undo;
 	}
 
-	void onDisable()
+	void OnDisable()
 	{
 		CameraController.IncreaseSize -= CameraController_IncreaseSize;
 		GUIController.Redo -= GUIController_Redo;
 		GUIController.Undo -= GUIController_Undo;
 	}
 
-	private Vector2[] CameraController_IncreaseSize(RectInt sides)
+	private BoardSize CameraController_IncreaseSize(RectInt sides)
 	{
 		var squaresToAdd = sides * sizeIncrement;
 		Vector2Int currSize = board.getSize();
 
-		var ll = board.getOffset() * -1;
-		var ur = currSize + ll;
-
-		bool isMaxX = currSize.x + squaresToAdd.xMax > maxSizeX;
-		bool isMaxY = currSize.y + squaresToAdd.yMax > maxSizeY;
+		bool isMaxX = currSize.x == maxSizeX || currSize.x + squaresToAdd.xMax > maxSizeX;
+		bool isMaxY = currSize.y == maxSizeY || currSize.y + squaresToAdd.yMax > maxSizeY;
 
 		if (isMaxX && isMaxY)
-			return GetBoardSize(ll, ur, Vector2.one);
+			return GetBoardSize(true);
 
 		if (isMaxX)
 		{
-			squaresToAdd.x = 0;
-			squaresToAdd.width = 0;
+			int width = maxSizeX - currSize.x;
+			if (width <= 0)
+			{
+				squaresToAdd.x = 0;
+				squaresToAdd.width = 0;
+			}
+			else if (squaresToAdd.x > 0 && squaresToAdd.width > 0)
+			{
+				var half = width / 2f;
+				squaresToAdd.x = Mathf.FloorToInt(half);
+				squaresToAdd.width = Mathf.CeilToInt(half);
+			}
+			else if (squaresToAdd.x > 0)
+				squaresToAdd.x = width;
+
+			else if (squaresToAdd.width > 0)
+				squaresToAdd.width = width;
 		}
 		if (isMaxY)
 		{
-			squaresToAdd.y = 0;
-			squaresToAdd.height = 0;
+			int height = maxSizeY - currSize.y;
+			if (height <= 0)
+			{
+				squaresToAdd.y = 0;
+				squaresToAdd.height = 0;
+			}
+			else if (squaresToAdd.x > 0 && squaresToAdd.width > 0)
+			{
+				var half = height / 2f;
+				squaresToAdd.y = Mathf.FloorToInt(half);
+				squaresToAdd.height = Mathf.CeilToInt(half);
+			}
+			if (squaresToAdd.y > 0)
+				squaresToAdd.y = height;
+
+			else if (squaresToAdd.height > 0)
+				squaresToAdd.height = height;
 		}
+
+		if (squaresToAdd == RectInt.zero)
+			return GetBoardSize(false);
+
+		AddSquares(squaresToAdd);
 
 		board.IncreaseSize(squaresToAdd);
 
-		AddSquares(ll, ur, squaresToAdd);
+		Debug.Log(String.Format("Expanding board by {0} to {1}", squaresToAdd, board.getSize()));
 
-		return GetBoardSize(ll, ur, Vector2.zero);
+		return GetBoardSize(false);
 	}
 
-	private void AddSquares(Vector2Int ll, Vector2Int ur, RectInt squaresToAdd)
+	private void AddSquares(RectInt squaresToAdd)
 	{
+		var ll = board.getOffset() * -1;
+		var ur = board.getSize() + ll;
 		var newLl = new Vector2Int(ll.x - squaresToAdd.x, ll.y - squaresToAdd.y);
 		var newUr = new Vector2Int(ur.x + squaresToAdd.width, ur.y + squaresToAdd.height);
 
@@ -162,14 +200,17 @@ public class BoardController : TouchController
 		obj.transform.parent = transform;
 	}
 
-	private Vector2[] GetBoardSize(Vector2Int ll, Vector2Int ur, Vector2 locked)
+	private BoardSize GetBoardSize(bool max)
 	{
+		var ll = board.getOffset() * -1;
+		var ur = board.getSize() + ll;
 		var halfWidth = squareSize / 2f;
 		var bezelVector = Vector2.one * bezel;
-		var LL = (Vector2) ll - halfWidth - bezelVector;
-		var UR = (Vector2) ur - halfWidth + bezelVector;
 
-		return new[] { LL, UR, locked };
+		var LL = (Vector2)ll - halfWidth - bezelVector;
+		var UR = (Vector2)ur - halfWidth + bezelVector;
+
+		return new BoardSize(LL, UR, max);
 	}
 
 	private void SetMark(Vector2Int pos, Player player, GameObject square)
@@ -256,6 +297,7 @@ public class BoardController : TouchController
 	{
 		currPlayer = player;
 		GUIController.currPlayer = player;
+		GUIController.playerDisabled = disabled;
 	}
 
 	private void DrawLine(WinLine line)

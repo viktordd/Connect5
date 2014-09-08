@@ -8,6 +8,7 @@ public class TouchController : MonoBehaviour
 
 	private bool touching = false;
 	private float totalMovement;
+	protected bool disabled;
 
 	protected virtual void Update()
 	{
@@ -16,7 +17,15 @@ public class TouchController : MonoBehaviour
 
 	private void CheckTouch()
 	{
-		if (Input.touchCount != 1 || Camera.main.orthographicSize > maxZoomTouch)
+		bool disableTouch = Camera.main.orthographicSize > maxZoomTouch;
+
+		if (disableTouch != disabled)
+		{
+			disabled = disableTouch;
+			TouchEnabledChanged();
+		}
+
+		if (Input.touchCount != 1 || disableTouch)
 		{
 			if (touching)
 			{
@@ -54,7 +63,7 @@ public class TouchController : MonoBehaviour
 				case TouchPhase.Moved:
 					if (touching)
 					{
-						totalMovement += ((Vector2) Camera.main.ScreenToWorldPoint(touch.deltaPosition)).magnitude / Camera.main.orthographicSize;
+						totalMovement += ((Vector2)Camera.main.ScreenToWorldPoint(touch.deltaPosition)).magnitude / Camera.main.orthographicSize;
 						if (totalMovement > maxMoveTouchCancel)
 						{
 							touching = false;
@@ -71,11 +80,12 @@ public class TouchController : MonoBehaviour
 
 	protected GameObject GetSquare(Vector2 position, LayerMask mask)
 	{
-		Collider2D collider = Physics2D.OverlapCircle(position, 0.1f, mask);
+		Collider2D collider = Physics2D.OverlapPoint(position, mask);
 		return collider == null ? null : collider.gameObject;
 	}
 
 	protected virtual void TouchStart(GameObject gObj) { }
 	protected virtual void TouchCanceled() { }
 	protected virtual void TouchEnded() { }
+	protected virtual void TouchEnabledChanged() { }
 }

@@ -1,4 +1,5 @@
-﻿using UnityEngine;
+﻿using System;
+using UnityEngine;
 
 public class RectInt
 {
@@ -235,6 +236,12 @@ public class RectInt
 		this.m_Height = height;
 	}
 
+	public override string ToString()
+	{
+		return String.Format("(x:{0}, y:{1}, width:{2}, height:{3})", x, y, width, height);
+	}
+
+
 	public bool Contains(Vector2 point)
 	{
 		if ((double)point.x >= (double)this.xMin && (double)point.x < (double)this.xMax && (double)point.y >= (double)this.yMin)
@@ -255,9 +262,7 @@ public class RectInt
 	{
 		if (!allowInverse)
 			return this.Contains(point);
-		bool flag = false;
-		if ((double)this.width < 0.0 && (double)point.x <= (double)this.xMin && (double)point.x > (double)this.xMax || (double)this.width >= 0.0 && (double)point.x >= (double)this.xMin && (double)point.x < (double)this.xMax)
-			flag = true;
+		bool flag = (double)this.width < 0.0 && (double)point.x <= (double)this.xMin && (double)point.x > (double)this.xMax || (double)this.width >= 0.0 && (double)point.x >= (double)this.xMin && (double)point.x < (double)this.xMax;
 		return flag && ((double)this.height < 0.0 && (double)point.y <= (double)this.yMin && (double)point.y > (double)this.yMax || (double)this.height >= 0.0 && (double)point.y >= (double)this.yMin && (double)point.y < (double)this.yMax);
 	}
 
@@ -297,12 +302,12 @@ public class RectInt
 		return rect.Overlaps(other);
 	}
 
-	public static Vector2 NormalizedToPoint(Rect rectangle, Vector2 normalizedRectCoordinates)
+	public static Vector2 NormalizedToPoint(RectInt rectangle, Vector2 normalizedRectCoordinates)
 	{
 		return new Vector2(Mathf.Lerp(rectangle.x, rectangle.xMax, normalizedRectCoordinates.x), Mathf.Lerp(rectangle.y, rectangle.yMax, normalizedRectCoordinates.y));
 	}
 
-	public static Vector2 PointToNormalized(Rect rectangle, Vector2 point)
+	public static Vector2 PointToNormalized(RectInt rectangle, Vector2 point)
 	{
 		return new Vector2(Mathf.InverseLerp(rectangle.x, rectangle.xMax, point.x), Mathf.InverseLerp(rectangle.y, rectangle.yMax, point.y));
 	}
@@ -314,9 +319,9 @@ public class RectInt
 
 	public override bool Equals(object other)
 	{
-		if (!(other is Rect))
+		if (!(other is RectInt))
 			return false;
-		Rect rect = (Rect)other;
+		var rect = (RectInt)other;
 		if (this.x.Equals(rect.x) && this.y.Equals(rect.y) && this.width.Equals(rect.width))
 			return this.height.Equals(rect.height);
 		else
