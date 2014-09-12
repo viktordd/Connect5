@@ -3,6 +3,7 @@ using UnityEngine;
 
 public class CameraController : MonoBehaviour
 {
+	public float moveDeadZone = 0.05f;
 	public float minZoom = 2.5f;
 	public float maxZoom = 25f;
 	private float minZ;
@@ -11,8 +12,22 @@ public class CameraController : MonoBehaviour
 	public LayerMask squareMask;
 
 	public static event Func<RectInt, BoardSize> IncreaseSize;
+	public static event Action MoveBegan;
 
-	private Vector2 prevTPos, prevT0Pos, prevT1Pos;
+	public float drag;
+	public float maxVelocity;
+
+	private float zeroCount;
+	private bool isVelocity;
+	private Vector2 velocityDir;
+	private float velocityMag;
+	private Vector2 velocity;
+
+	private bool moveBegan;
+	private Vector2 initTPos;
+	private Vector2 prevTPos;
+	private Vector2 prevT0Pos;
+	private Vector2 prevT1Pos;
 
 	private bool init;
 	private byte initSizeCheck;
@@ -81,14 +96,41 @@ public class CameraController : MonoBehaviour
 			camera.orthographicSize = Mathf.Clamp(camera.orthographicSize + sizeDelta, minZ, maxZ);
 	}
 
+	void FixedUpdate()
+	{
+		if (isVelocity)
+		{
+			if (Input.touchCount > 0)
+			{
+				isVelocity = false;
+				return;
+			}
+
+			velocityMag -= drag;
+			if (velocityMag <= 0)
+			{
+				isVelocity = false;
+				return;
+			}
+			velocity = velocityDir * velocityMag;
+
+			ChangePosition(velocity);
+			if (!boardSize.max)
+				OnIncreaseSize(velocity, false);
+
+			Vector2 cameraDelta;
+			if (!init && OutOfBounds(out cameraDelta))
+				ChangePosition(cameraDelta);
+		}
+	}
+
 	void Update()
 	{
 		bool posChanged = false, sizeChanged = false;
-		Vector2 cameraDelta = Vector2.zero;
 
 		if (init)
 		{
-			OnIncreaseSize(cameraDelta, true);
+			OnIncreaseSize(Vector2.zero, true);
 			IsInit();
 			return;
 		}
@@ -97,12 +139,62 @@ public class CameraController : MonoBehaviour
 		{
 			case 1:
 				Touch t = Input.GetTouch(0);
-				if (t.phase == TouchPhase.Moved)
+				switch (t.phase)
 				{
-					Vector3 delta = camera.ScreenToWorldPoint(t.position - prevTPos);
-					Vector3 bl = camera.ScreenToWorldPoint(Vector2.zero);
-					cameraDelta = bl - delta;
-					posChanged = true;
+					case TouchPhase.Began:
+						initTPos = t.position;
+						moveBegan = false;
+						break;
+
+					case TouchPhase.Moved:
+						if (t.position == prevTPos)
+						{
+							zeroCount += Time.deltaTime;
+							if (zeroCount > t.deltaTime)
+								velocity = Vector2.zero;
+						}
+						else
+						{
+							zeroCount = 0;
+
+							if (moveBegan)
+							{
+								velocity = GetScreenToWorldDistance(t.position, prevTPos);
+								posChanged = true;
+							}
+							else
+							{
+								var dist = GetScreenToWorldDistance(t.position, initTPos);
+								float magnitude = dist.magnitude;
+								if (magnitude > moveDeadZone)
+								{
+									velocity = dist.normalized * (magnitude - moveDeadZone);
+									posChanged = true;
+									moveBegan = true;
+									if (MoveBegan != null)
+										MoveBegan();
+								}
+							}
+						}
+						break;
+
+					case TouchPhase.Ended:
+						if (moveBegan)
+						{
+							velocityMag = velocity.magnitude;
+							if (velocityMag > 0)
+							{
+								isVelocity = true;
+								velocityDir = velocity.normalized;
+								if (velocityMag > maxVelocity)
+								{
+									velocityMag = maxVelocity;
+									velocity = velocityDir * velocityMag;
+								}
+								posChanged = true;
+							}
+						}
+						break;
 				}
 				prevTPos = t.position;
 				break;
@@ -127,7 +219,7 @@ public class CameraController : MonoBehaviour
 					Vector2 midpoint = camera.ScreenToWorldPoint(Vector2.Lerp(t0.position, t1.position, 0.5f));
 					Vector2 midpointPrev = Vector2.Lerp(t0Prev, t1Prev, 0.5f);
 
-					cameraDelta = midpointPrev - midpoint;
+					velocity = midpointPrev - midpoint;
 					posChanged = true;
 				}
 				if (t0.phase == TouchPhase.Canceled || t0.phase == TouchPhase.Ended)
@@ -143,14 +235,21 @@ public class CameraController : MonoBehaviour
 
 		if (posChanged)
 		{
-			ChangePosition(cameraDelta);
+			ChangePosition(velocity);
 			if (!boardSize.max)
-				OnIncreaseSize(cameraDelta, sizeChanged);
-
+				OnIncreaseSize(velocity, sizeChanged);
+			
+			Vector2 cameraDelta;
 			if (!init && OutOfBounds(out cameraDelta))
 				ChangePosition(cameraDelta);
 			
 		}
+	}
+
+	private Vector3 GetScreenToWorldDistance(Vector2 pos1, Vector2 pos2)
+	{
+		Vector3 delta = camera.ScreenToWorldPoint(pos1 - pos2);
+		return camera.ScreenToWorldPoint(Vector2.zero) - delta;
 	}
 
 	private void OnIncreaseSize(Vector2 cameraDelta, bool checkAllSides, bool skipMaxZoom = false )

@@ -9,8 +9,6 @@ public class BoardController : TouchController
 	public string @checked;
 	public GameObject squarePrefab;
 
-	public GameObject playerText;
-
 	public Sprite empty;
 	public Sprite checkedX;
 	public Sprite checkedO;
@@ -39,8 +37,9 @@ public class BoardController : TouchController
 
 	private GameObject winnerLine;
 
-	void Start()
+	protected override void Start()
 	{
+		base.Start();
 		squareSize = new Vector2(squarePrefab.transform.localScale.x, squarePrefab.transform.localScale.y);
 
 		anySquare = LayerMask.GetMask(new[] { @notChecked, @checked });

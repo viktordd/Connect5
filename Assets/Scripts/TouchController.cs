@@ -1,14 +1,27 @@
-﻿using UnityEngine;
+﻿using System;
+using UnityEngine;
 
 public class TouchController : MonoBehaviour
 {
-	public float maxZoomTouch = 7f;
-	public float maxMoveTouchCancel = 7f;
+	public float maxZoomTouch = 10f;
 	public LayerMask notCheckedMask;
 
 	private bool touching = false;
-	private float totalMovement;
 	protected bool disabled;
+
+	protected virtual void Start()
+	{
+		CameraController.MoveBegan += CameraController_MoveBegan;
+	}
+
+	void CameraController_MoveBegan()
+	{
+		if (touching)
+		{
+			touching = false;
+			TouchCanceled();
+		}
+	}
 
 	protected virtual void Update()
 	{
@@ -39,7 +52,6 @@ public class TouchController : MonoBehaviour
 			switch (touch.phase)
 			{
 				case TouchPhase.Began:
-					totalMovement = 0f;
 					if (GUIController.InGui(touch.position))
 					{
 						touching = false;
@@ -58,17 +70,6 @@ public class TouchController : MonoBehaviour
 					{
 						touching = false;
 						TouchEnded();
-					}
-					break;
-				case TouchPhase.Moved:
-					if (touching)
-					{
-						totalMovement += ((Vector2)Camera.main.ScreenToWorldPoint(touch.deltaPosition)).magnitude / Camera.main.orthographicSize;
-						if (totalMovement > maxMoveTouchCancel)
-						{
-							touching = false;
-							TouchCanceled();
-						}
 					}
 					break;
 				case TouchPhase.Canceled:
