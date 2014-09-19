@@ -114,13 +114,7 @@ public class CameraController : MonoBehaviour
 			}
 			velocity = velocityDir * velocityMag;
 
-			ChangePosition(velocity);
-			if (!boardSize.max)
-				OnIncreaseSize(velocity, false);
-
-			Vector2 cameraDelta;
-			if (!init && OutOfBounds(out cameraDelta))
-				ChangePosition(cameraDelta);
+			OnPosChange(false);
 		}
 	}
 
@@ -235,14 +229,20 @@ public class CameraController : MonoBehaviour
 
 		if (posChanged)
 		{
-			ChangePosition(velocity);
-			if (!boardSize.max)
-				OnIncreaseSize(velocity, sizeChanged);
-			
-			Vector2 cameraDelta;
-			if (!init && OutOfBounds(out cameraDelta))
-				ChangePosition(cameraDelta);
-			
+			OnPosChange(sizeChanged);
+		}
+	}
+
+	private void OnPosChange(bool sizeChanged)
+	{
+		camera.transform.position += (Vector3) velocity;
+		if (!boardSize.max)
+			OnIncreaseSize(velocity, sizeChanged);
+
+		Vector2 cameraDelta;
+		if (!init && OutOfBounds(out cameraDelta))
+		{
+			camera.transform.position += (Vector3) cameraDelta;
 		}
 	}
 
@@ -341,11 +341,5 @@ public class CameraController : MonoBehaviour
 			cameraDelta = new Vector2(cameraDelta.x, boardSize.rect.yMax - ur.y);
 		}
 		return outOfBounds;
-	}
-
-	private void ChangePosition(Vector2 cameraDelta)
-	{
-		var pos = camera.transform.position;
-		camera.transform.position = new Vector3(pos.x + cameraDelta.x, pos.y + cameraDelta.y, pos.z);
 	}
 }

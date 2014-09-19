@@ -40,7 +40,6 @@ public class Board
 	public WinLine CheckIfWon(Vector2Int point)
 	{
 		point += offset;
-		Vector2Int[] line = { point, point };
 
 		int sizeX = squares.GetLength(0);
 		int sizeY = squares.GetLength(1);
@@ -49,21 +48,30 @@ public class Board
 
 		foreach (Vector2Int[] dir in direction)
 		{
-			int numInRow = 1;
+			var numInRow = new [] { 0, 0 };
 			for (int i = 0; i < dir.Length; i++)
 			{
 				Vector2Int curr = point + dir[i];
 
 				while (0 <= curr.x && curr.x < sizeX && 0 <= curr.y && curr.y < sizeY && squares[curr.x, curr.y] == currPlayer)
 				{
-					line[i] = curr;
-					numInRow++;
+					numInRow[i]++;
 					curr += dir[i];
 				}
 			}
 
-			if (numInRow >= 5)
-				return new WinLine(line[0] - offset, line[1] - offset, dir);
+			var total = 1 + numInRow[0] + numInRow[1];
+
+			while (total > 5)
+			{
+				if (numInRow[0] > numInRow[1])
+					numInRow[0]--;
+				else
+					numInRow[1]--;
+				total--;
+			}
+			if (total == 5)
+				return new WinLine(point + (dir[0] * numInRow[0]) - offset, point + (dir[1] * numInRow[1]) - offset, dir);
 		}
 		return null;
 	}
