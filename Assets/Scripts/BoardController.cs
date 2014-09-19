@@ -303,6 +303,7 @@ public class BoardController : TouchController
 	{
 		winnerLine = new GameObject();
 		var sRenderer = winnerLine.AddComponent<SpriteRenderer>();
+		sRenderer.color = new Color(1f, 1f, 1f, .7f);
 
 		winnerLine.transform.parent = transform;
 		winnerLine.transform.position = Vector3.Lerp(line.startPt, line.endPt, 0.5f) + Vector3.back;
