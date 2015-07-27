@@ -1,8 +1,13 @@
 fileFormatVersion: 2
 guid: 753aa04d86888cc44b8b7d92d147e9ad
+timeCreated: 1437966140
+licenseType: Free
 MonoImporter:
   serializedVersion: 2
-  defaultReferences: []
+  defaultReferences:
+  - Touch: {fileID: 100000, guid: 5c597c424af65514a80c7fb260e18df8, type: 2}
   executionOrder: 0
   icon: {instanceID: 0}
   userData: 
+  assetBundleName: 
+  assetBundleVariant: 

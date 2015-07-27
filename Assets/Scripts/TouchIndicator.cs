@@ -1,54 +1,60 @@
 ﻿using System.Collections.Generic;
+using JetBrains.Annotations;
 using UnityEngine;
+// ReSharper disable CheckNamespace
+// ReSharper disable MemberCanBePrivate.Global
+// ReSharper disable UnassignedField.Global
+// ReSharper disable UnusedMember.Local
 
+[UsedImplicitly]
 public class TouchIndicator : MonoBehaviour
 {
-	public GameObject touchIndicator;
-	private List<GameObject> touchIndicators = new List<GameObject>();
-	private GameObject midpoint;
+	public GameObject Touch;
+	private readonly List<GameObject> _touchIndicators = new List<GameObject>();
+	private GameObject _midpoint;
 
 	private void Update()
 	{
-		if (touchIndicator == null)
+		if (Touch == null)
 			return;
 
 		int i;
 		for (i = 0; i < Input.touchCount; i++)
 		{
 			var touch = Input.GetTouch(i);
-			Vector3 pos = Camera.main.ScreenToWorldPoint(touch.position);
+			var pos = Camera.main.ScreenToWorldPoint(touch.position);
 			pos.z = 0;
 
-			if (touchIndicators.Count <= i)
+			if (_touchIndicators.Count <= i)
 			{
-				var obj = (GameObject)Instantiate(touchIndicator, pos, new Quaternion());
+				var obj = (GameObject)Instantiate(Touch, pos, new Quaternion());
 				obj.transform.parent = transform;
-				touchIndicators.Add(obj);
+				_touchIndicators.Add(obj);
 			}
 			else
-				touchIndicators[i].transform.position = pos;
+				_touchIndicators[i].transform.position = pos;
 		}
-		while (i < touchIndicators.Count)
+		while (i < _touchIndicators.Count)
 		{
-			Destroy(touchIndicators[i]);
-			touchIndicators.RemoveAt(i);
+			Destroy(_touchIndicators[i]);
+			_touchIndicators.RemoveAt(i);
 		}
 
 		if (Input.touchCount == 2)
 		{
 			Vector2 pos = Camera.main.ScreenToWorldPoint(Vector3.Lerp(Input.GetTouch(0).position, Input.GetTouch(1).position, 0.5f));
-			if (midpoint == null)
+			if (_midpoint == null)
 			{
-				midpoint = (GameObject)Instantiate(touchIndicator, pos, new Quaternion());
-				midpoint.transform.parent = transform;
+				_midpoint = (GameObject)Instantiate(Touch, pos, new Quaternion());
+				_midpoint.transform.parent = transform;
 			}
 			else
-				midpoint.transform.position = pos;
+				_midpoint.transform.position = pos;
 		}
 		else
 		{
-			Destroy(midpoint);
-			midpoint = null;
+			Destroy(_midpoint);
+			_midpoint = null;
 		}
 	}
 }

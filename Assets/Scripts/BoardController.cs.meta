@@ -1,8 +1,19 @@
 fileFormatVersion: 2
 guid: 763bcd9ddf07a52449dbf0d670100a85
+timeCreated: 1437962270
+licenseType: Free
 MonoImporter:
   serializedVersion: 2
-  defaultReferences: []
+  defaultReferences:
+  - SquarePrefab: {fileID: 100000, guid: d38922d22bfacb547a77267764536d6d, type: 2}
+  - Empty: {fileID: 21300002, guid: 631897951c19dce47899178c23d90b04, type: 3}
+  - CheckedX: {fileID: 21300004, guid: 631897951c19dce47899178c23d90b04, type: 3}
+  - CheckedO: {fileID: 21300006, guid: 631897951c19dce47899178c23d90b04, type: 3}
+  - OnTouch: {fileID: 21300016, guid: 631897951c19dce47899178c23d90b04, type: 3}
+  - LineH: {fileID: 21300008, guid: 631897951c19dce47899178c23d90b04, type: 3}
+  - LineD: {fileID: 21300012, guid: 631897951c19dce47899178c23d90b04, type: 3}
   executionOrder: 0
   icon: {instanceID: 0}
   userData: 
+  assetBundleName: 
+  assetBundleVariant: 

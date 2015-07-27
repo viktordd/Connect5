@@ -1,12 +1,16 @@
-﻿using System;
-using UnityEngine;
+﻿using UnityEngine;
+// ReSharper disable CheckNamespace
+// ReSharper disable ConvertPropertyToExpressionBody
+// ReSharper disable UseStringInterpolation
+// ReSharper disable UnusedMember.Global
+// ReSharper disable NonReadonlyMemberInGetHashCode
 
 public struct Vector2Int
 {
-	public int x;
-	public int y;
+	public int X;
+	public int Y;
 
-	public static Vector2Int zero
+	public static Vector2Int Zero
 	{
 		get
 		{
@@ -14,7 +18,7 @@ public struct Vector2Int
 		}
 	}
 
-	public static Vector2Int one
+	public static Vector2Int One
 	{
 		get
 		{
@@ -22,7 +26,7 @@ public struct Vector2Int
 		}
 	}
 
-	public static Vector2Int up
+	public static Vector2Int Up
 	{
 		get
 		{
@@ -30,7 +34,7 @@ public struct Vector2Int
 		}
 	}
 
-	public static Vector2Int right
+	public static Vector2Int Right
 	{
 		get
 		{
@@ -40,8 +44,8 @@ public struct Vector2Int
 
 	public Vector2Int(int x, int y)
 	{
-		this.x = x;
-		this.y = y;
+		X = x;
+		Y = y;
 	}
 
 	public static implicit operator Vector2Int(Vector2 v)
@@ -56,79 +60,79 @@ public struct Vector2Int
 
 	public static implicit operator Vector2(Vector2Int v)
 	{
-		return new Vector2(v.x, v.y);
+		return new Vector2(v.X, v.Y);
 	}
 
 	public static implicit operator Vector3(Vector2Int v)
 	{
-		return new Vector3(v.x, v.y, 0f);
+		return new Vector3(v.X, v.Y, 0f);
 	}
 
 	public static Vector2Int operator +(Vector2Int a, Vector2Int b)
 	{
-		return new Vector2Int(a.x + b.x, a.y + b.y);
+		return new Vector2Int(a.X + b.X, a.Y + b.Y);
 	}
 
 	public static Vector2Int operator -(Vector2Int a, Vector2Int b)
 	{
-		return new Vector2Int(a.x - b.x, a.y - b.y);
+		return new Vector2Int(a.X - b.X, a.Y - b.Y);
 	}
 
 	public static Vector2Int operator -(Vector2Int a)
 	{
-		return new Vector2Int(-a.x, -a.y);
+		return new Vector2Int(-a.X, -a.Y);
 	}
 
 	public static Vector2Int operator *(Vector2Int a, int d)
 	{
-		return new Vector2Int(a.x * d, a.y * d);
+		return new Vector2Int(a.X * d, a.Y * d);
 	}
 
 	public static Vector2Int operator *(int d, Vector2Int a)
 	{
-		return new Vector2Int(a.x * d, a.y * d);
+		return new Vector2Int(a.X * d, a.Y * d);
 	}
 
 	public static Vector2Int operator /(Vector2Int a, int d)
 	{
-		return new Vector2Int(a.x / d, a.y / d);
+		return new Vector2Int(a.X / d, a.Y / d);
 	}
 
-	public static bool operator ==(Vector2Int lhs, Vector2Int rhs)
+	public static bool operator ==(Vector2Int x, Vector2Int y)
 	{
-		return lhs.x == rhs.x && lhs.y == rhs.y;
+		return x.X == y.X && x.Y == y.Y;
 	}
 
-	public static bool operator !=(Vector2Int lhs, Vector2Int rhs)
+	public static bool operator !=(Vector2Int x, Vector2Int y)
 	{
-		return lhs.x != rhs.x && lhs.y != rhs.y;
+		return x.X != y.X && x.Y != y.Y;
 	}
 
-	public void Set(int new_x, int new_y)
+	public void Set(int x, int y)
 	{
-		this.x = new_x;
-		this.y = new_y;
+		X = x;
+		Y = y;
 	}
 
 	public static Vector2Int Scale(Vector2Int a, Vector2Int b)
 	{
-		return new Vector2Int(a.x * b.x, a.y * b.y);
+		return new Vector2Int(a.X * b.X, a.Y * b.Y);
 	}
 
 	public void Scale(Vector2Int scale)
 	{
-		this.x *= scale.x;
-		this.y *= scale.y;
+		X *= scale.X;
+		Y *= scale.Y;
 	}
 
 	public override string ToString()
 	{
-		return String.Format("({0}, {1})", x, y);
+		return string.Format("({0}, {1})", X, Y);
 	}
 
 	public override int GetHashCode()
 	{
-		return this.x.GetHashCode() ^ this.y.GetHashCode() << 2;
+		return X.GetHashCode() ^ Y.GetHashCode() << 2;
 	}
 
 	public override bool Equals(object other)
@@ -136,19 +140,18 @@ public struct Vector2Int
 		if (!(other is Vector2Int))
 			return false;
 		var vector2Int = (Vector2Int)other;
-		if (this.x.Equals(vector2Int.x))
-			return this.y.Equals(vector2Int.y);
-		else
-			return false;
+		if (X.Equals(vector2Int.X))
+			return Y.Equals(vector2Int.Y);
+		return false;
 	}
 
 	public static Vector2Int Min(Vector2Int lhs, Vector2Int rhs)
 	{
-		return new Vector2Int(Mathf.Min(lhs.x, rhs.x), Mathf.Min(lhs.y, rhs.y));
+		return new Vector2Int(Mathf.Min(lhs.X, rhs.X), Mathf.Min(lhs.Y, rhs.Y));
 	}
 
 	public static Vector2Int Max(Vector2Int lhs, Vector2Int rhs)
 	{
-		return new Vector2Int(Mathf.Max(lhs.x, rhs.x), Mathf.Max(lhs.y, rhs.y));
+		return new Vector2Int(Mathf.Max(lhs.X, rhs.X), Mathf.Max(lhs.Y, rhs.Y));
 	}
 }

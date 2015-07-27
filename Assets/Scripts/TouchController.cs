@@ -1,12 +1,25 @@
-﻿using UnityEngine;
+﻿using JetBrains.Annotations;
+using UnityEngine;
+using UnityEngine.EventSystems;
 
+// ReSharper disable CheckNamespace
+// ReSharper disable MemberCanBePrivate.Global
+// ReSharper disable UnassignedField.Global
+// ReSharper disable UnusedMember.Local
+// ReSharper disable UnusedMemberHiearchy.Global
+// ReSharper disable FieldCanBeMadeReadOnly.Global
+// ReSharper disable ConvertToConstant.Global
+// ReSharper disable MergeConditionalExpression
+// ReSharper disable MemberCanBeProtected.Global
+
+[UsedImplicitly]
 public class TouchController : MonoBehaviour
 {
-	public float maxZoomTouch = 10f;
-	public LayerMask notCheckedMask;
+	public float MaxZoomTouch = 10f;
+	public LayerMask NotCheckedMask;
 
-	private bool touching = false;
-	protected bool disabled;
+	private bool _touching;
+	protected bool Disabled;
 
 	protected virtual void Start()
 	{
@@ -15,9 +28,9 @@ public class TouchController : MonoBehaviour
 
 	void CameraController_MoveBegan()
 	{
-		if (touching)
+		if (_touching)
 		{
-			touching = false;
+			_touching = false;
 			TouchCanceled();
 		}
 	}
@@ -29,63 +42,83 @@ public class TouchController : MonoBehaviour
 
 	private void CheckTouch()
 	{
-		bool disableTouch = Camera.main.orthographicSize > maxZoomTouch;
+		var disableTouch = Camera.main.orthographicSize > MaxZoomTouch;
 
-		if (disableTouch != disabled)
+		if (disableTouch != Disabled)
 		{
-			disabled = disableTouch;
+			Disabled = disableTouch;
 			TouchEnabledChanged();
 		}
 
-		if (Input.touchCount != 1 || disableTouch)
+		if (disableTouch || !(Input.GetMouseButton(0) || Input.GetMouseButtonUp(0) || Input.touchCount == 1))
 		{
-			if (touching)
-			{
-				touching = false;
-				TouchCanceled();
-			}
+			if (!_touching)
+				return;
+			_touching = false;
+			TouchCanceled();
 		}
-		else
+		else if (Input.GetMouseButtonDown(0))
 		{
-			Touch touch = Input.GetTouch(0);
+			OnTouchStart(Input.mousePosition);
+		}
+		else if (_touching && Input.GetMouseButtonUp(0))
+		{
+			OnTouchEnd(Input.mousePosition);
+		}
+		else if (Input.touchCount == 1)
+		{
+			var touch = Input.GetTouch(0);
 			switch (touch.phase)
 			{
 				case TouchPhase.Began:
-					if (GUIController.InGui(touch.position))
-					{
-						touching = false;
-						return;
-					}
-					var position = Camera.main.ScreenToWorldPoint(touch.position);
-					var obj = GetSquare(position, notCheckedMask);
-					if (obj != null)
-					{
-						touching = true;
-						TouchStart(obj);
-					}
+					OnTouchStart(touch.position);
 					break;
 				case TouchPhase.Ended:
-					if (touching)
-					{
-						touching = false;
-						TouchEnded();
-					}
+					if (_touching)
+						OnTouchEnd(touch.position);
 					break;
 				case TouchPhase.Canceled:
-					touching = false;
+					_touching = false;
 					break;
 			}
 		}
 	}
 
-	protected GameObject GetSquare(Vector2 position, LayerMask mask)
+	private void OnTouchStart(Vector2 touchPos)
 	{
-		Collider2D collider = Physics2D.OverlapPoint(position, mask);
-		return collider == null ? null : collider.gameObject;
+		if (GuiController.InGui(touchPos))
+		{
+			_touching = false;
+			return;
+		}
+		var position = Camera.main.ScreenToWorldPoint(touchPos);
+		var obj = GetSquare(position, NotCheckedMask);
+		if (obj == null)
+			return;
+		_touching = true;
+		TouchStart(obj);
+	}
+	private void OnTouchEnd(Vector2 touchPos)
+	{
+		_touching = false;
+		if (GuiController.InGui(touchPos))
+		{
+			TouchCanceled();
+			return;
+		}
+		var position = Camera.main.ScreenToWorldPoint(touchPos);
+		var obj = GetSquare(position, NotCheckedMask);
+		TouchEnded(obj);
+	}
+
+	protected static GameObject GetSquare(Vector2 position, LayerMask mask)
+	{
+		var overlapPointCollider = Physics2D.OverlapPoint(position, mask);
+		return overlapPointCollider == null ? null : overlapPointCollider.gameObject;
 	}
 
 	protected virtual void TouchStart(GameObject gObj) { }
 	protected virtual void TouchCanceled() { }
-	protected virtual void TouchEnded() { }
+	protected virtual void TouchEnded(GameObject gObj = null) { }
 	protected virtual void TouchEnabledChanged() { }
 }

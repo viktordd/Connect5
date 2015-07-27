@@ -1,195 +1,156 @@
-﻿using System;
-using UnityEngine;
+﻿using UnityEngine;
+// ReSharper disable MemberCanBePrivate.Global
+// ReSharper disable UnusedMember.Global
+// ReSharper disable UseStringInterpolation
+// ReSharper disable ConvertPropertyToExpressionBody
+// ReSharper disable NonReadonlyMemberInGetHashCode
+
+// ReSharper disable CheckNamespace
 
 public class RectInt
 {
-	private int m_XMin;
-	private int m_YMin;
-	private int m_Width;
-	private int m_Height;
+	public int X { get; set; }
 
-	public int x
+	public int Y { get; set; }
+
+	public Vector2Int Position
 	{
 		get
 		{
-			return this.m_XMin;
+			return new Vector2Int(X, Y);
 		}
 		set
 		{
-			this.m_XMin = value;
+			X = value.X;
+			Y = value.Y;
 		}
 	}
 
-	public int y
+	public Vector2 Center
 	{
 		get
 		{
-			return this.m_YMin;
+			return new Vector2(X + Width / 2f, Y + Height / 2f);
 		}
 		set
 		{
-			this.m_YMin = value;
+			X = Mathf.RoundToInt(value.x) - Width / 2;
+			Y = Mathf.RoundToInt(value.y) - Height / 2;
 		}
 	}
 
-	public Vector2Int position
+	public Vector2Int Min
 	{
 		get
 		{
-			return new Vector2Int(this.m_XMin, this.m_YMin);
+			return new Vector2Int(XMin, YMin);
 		}
 		set
 		{
-			this.m_XMin = value.x;
-			this.m_YMin = value.y;
+			XMin = value.X;
+			YMin = value.Y;
 		}
 	}
 
-	public Vector2 center
+	public Vector2Int Max
 	{
 		get
 		{
-			return new Vector2(this.x + this.m_Width / 2f, this.y + this.m_Height / 2f);
+			return new Vector2Int(XMax, YMax);
 		}
 		set
 		{
-			this.m_XMin = Mathf.RoundToInt(value.x) - this.m_Width / 2;
-			this.m_YMin = Mathf.RoundToInt(value.y) - this.m_Height / 2;
+			XMax = value.X;
+			YMax = value.Y;
 		}
 	}
 
-	public Vector2Int min
+	public int Width { get; set; }
+
+	public int Height { get; set; }
+
+	public Vector2Int Size
 	{
 		get
 		{
-			return new Vector2Int(this.xMin, this.yMin);
+			return new Vector2Int(Width, Height);
 		}
 		set
 		{
-			this.xMin = value.x;
-			this.yMin = value.y;
+			Width = value.X;
+			Height = value.Y;
 		}
 	}
 
-	public Vector2Int max
+	public int XMin
 	{
 		get
 		{
-			return new Vector2Int(this.xMax, this.yMax);
+			return X;
 		}
 		set
 		{
-			this.xMax = value.x;
-			this.yMax = value.y;
+			var xMax = XMax;
+			X = value;
+			Width = xMax - X;
 		}
 	}
 
-	public int width
+	public int YMin
 	{
 		get
 		{
-			return this.m_Width;
+			return Y;
 		}
 		set
 		{
-			this.m_Width = value;
+			var yMax = YMax;
+			Y = value;
+			Height = yMax - Y;
 		}
 	}
 
-	public int height
+	public int XMax
 	{
 		get
 		{
-			return this.m_Height;
+			return Width + X;
 		}
 		set
 		{
-			this.m_Height = value;
+			Width = value - X;
 		}
 	}
 
-	public Vector2Int size
+	public int YMax
 	{
 		get
 		{
-			return new Vector2Int(this.m_Width, this.m_Height);
+			return Height + Y;
 		}
 		set
 		{
-			this.m_Width = value.x;
-			this.m_Height = value.y;
-		}
-	}
-
-	public int xMin
-	{
-		get
-		{
-			return this.m_XMin;
-		}
-		set
-		{
-			int xMax = this.xMax;
-			this.m_XMin = value;
-			this.m_Width = xMax - this.m_XMin;
-		}
-	}
-
-	public int yMin
-	{
-		get
-		{
-			return this.m_YMin;
-		}
-		set
-		{
-			int yMax = this.yMax;
-			this.m_YMin = value;
-			this.m_Height = yMax - this.m_YMin;
-		}
-	}
-
-	public int xMax
-	{
-		get
-		{
-			return this.m_Width + this.m_XMin;
-		}
-		set
-		{
-			this.m_Width = value - this.m_XMin;
-		}
-	}
-
-	public int yMax
-	{
-		get
-		{
-			return this.m_Height + this.m_YMin;
-		}
-		set
-		{
-			this.m_Height = value - this.m_YMin;
+			Height = value - Y;
 		}
 	}
 
 	public RectInt(int left, int top, int width, int height)
 	{
-		this.m_XMin = left;
-		this.m_YMin = top;
-		this.m_Width = width;
-		this.m_Height = height;
+		X = left;
+		Y = top;
+		Width = width;
+		Height = height;
 	}
 
 	public RectInt(RectInt source)
 	{
-		this.m_XMin = source.m_XMin;
-		this.m_YMin = source.m_YMin;
-		this.m_Width = source.m_Width;
-		this.m_Height = source.m_Height;
+		X = source.X;
+		Y = source.Y;
+		Width = source.Width;
+		Height = source.Height;
 	}
 
-	public static RectInt zero
+	public static RectInt Zero
 	{
 		get
 		{
@@ -197,30 +158,14 @@ public class RectInt
 		}
 	}
 
-	public static bool operator !=(RectInt lhs, RectInt rhs)
-	{
-		if (lhs.x == rhs.x && lhs.y == rhs.y && lhs.width == rhs.width)
-			return lhs.height != rhs.height;
-		else
-			return true;
-	}
-
-	public static bool operator ==(RectInt lhs, RectInt rhs)
-	{
-		if (lhs.x == rhs.x && lhs.y == rhs.y && lhs.width == rhs.width)
-			return lhs.height == rhs.height;
-		else
-			return false;
-	}
-
 	public static RectInt operator *(RectInt a, int d)
 	{
-		return new RectInt(a.x * d, a.y * d, a.width * d, a.height * d);
+		return new RectInt(a.X * d, a.Y * d, a.Width * d, a.Height * d);
 	}
 
 	public static RectInt operator *(int d, RectInt a)
 	{
-		return new RectInt(a.x * d, a.y * d, a.width * d, a.height * d);
+		return new RectInt(a.X * d, a.Y * d, a.Width * d, a.Height * d);
 	}
 
 	public static RectInt MinMaxRect(int left, int top, int right, int bottom)
@@ -230,101 +175,115 @@ public class RectInt
 
 	public void Set(int left, int top, int width, int height)
 	{
-		this.m_XMin = left;
-		this.m_YMin = top;
-		this.m_Width = width;
-		this.m_Height = height;
+		X = left;
+		Y = top;
+		Width = width;
+		Height = height;
 	}
 
 	public override string ToString()
 	{
-		return String.Format("(x:{0}, y:{1}, width:{2}, height:{3})", x, y, width, height);
+		return string.Format("(x:{0}, y:{1}, width:{2}, height:{3})", X, Y, Width, Height);
 	}
-
-
+	
 	public bool Contains(Vector2 point)
 	{
-		if ((double)point.x >= (double)this.xMin && (double)point.x < (double)this.xMax && (double)point.y >= (double)this.yMin)
-			return (double)point.y < (double)this.yMax;
-		else
-			return false;
+		if (point.x >= (double)XMin && point.x < (double)XMax && point.y >= (double)YMin)
+			return point.y < (double)YMax;
+		return false;
 	}
 
 	public bool Contains(Vector3 point)
 	{
-		if ((double)point.x >= (double)this.xMin && (double)point.x < (double)this.xMax && (double)point.y >= (double)this.yMin)
-			return (double)point.y < (double)this.yMax;
-		else
-			return false;
+		if (point.x >= (double)XMin && point.x < (double)XMax && point.y >= (double)YMin)
+			return point.y < (double)YMax;
+		return false;
 	}
 
 	public bool Contains(Vector3 point, bool allowInverse)
 	{
 		if (!allowInverse)
-			return this.Contains(point);
-		bool flag = (double)this.width < 0.0 && (double)point.x <= (double)this.xMin && (double)point.x > (double)this.xMax || (double)this.width >= 0.0 && (double)point.x >= (double)this.xMin && (double)point.x < (double)this.xMax;
-		return flag && ((double)this.height < 0.0 && (double)point.y <= (double)this.yMin && (double)point.y > (double)this.yMax || (double)this.height >= 0.0 && (double)point.y >= (double)this.yMin && (double)point.y < (double)this.yMax);
+			return Contains(point);
+		var flag = Width < 0.0 && point.x <= (double)XMin && point.x > (double)XMax || Width >= 0.0 && point.x >= (double)XMin && point.x < (double)XMax;
+		return flag && (Height < 0.0 && point.y <= (double)YMin && point.y > (double)YMax || Height >= 0.0 && point.y >= (double)YMin && point.y < (double)YMax);
 	}
 
 	private static RectInt OrderMinMax(RectInt rect)
 	{
-		if (rect.xMin > rect.xMax)
+		if (rect.XMin > rect.XMax)
 		{
-			int xMin = rect.xMin;
-			rect.xMin = rect.xMax;
-			rect.xMax = xMin;
+			var xMin = rect.XMin;
+			rect.XMin = rect.XMax;
+			rect.XMax = xMin;
 		}
-		if (rect.yMin > rect.yMax)
+		if (rect.YMin > rect.YMax)
 		{
-			int yMin = rect.yMin;
-			rect.yMin = rect.yMax;
-			rect.yMax = yMin;
+			var yMin = rect.YMin;
+			rect.YMin = rect.YMax;
+			rect.YMax = yMin;
 		}
 		return rect;
 	}
 
 	public bool Overlaps(RectInt other)
 	{
-		if (other.xMax > this.xMin && other.xMin < this.xMax && other.yMax > this.yMin)
-			return other.yMin < this.yMax;
-		else
-			return false;
+		if (other.XMax > XMin && other.XMin < XMax && other.YMax > YMin)
+			return other.YMin < YMax;
+		return false;
 	}
 
 	public bool Overlaps(RectInt other, bool allowInverse)
 	{
-		RectInt rect = this;
+		var rect = this;
 		if (allowInverse)
 		{
-			rect = RectInt.OrderMinMax(rect);
-			other = RectInt.OrderMinMax(other);
+			rect = OrderMinMax(rect);
+			other = OrderMinMax(other);
 		}
 		return rect.Overlaps(other);
 	}
 
 	public static Vector2 NormalizedToPoint(RectInt rectangle, Vector2 normalizedRectCoordinates)
 	{
-		return new Vector2(Mathf.Lerp(rectangle.x, rectangle.xMax, normalizedRectCoordinates.x), Mathf.Lerp(rectangle.y, rectangle.yMax, normalizedRectCoordinates.y));
+		return new Vector2(Mathf.Lerp(rectangle.X, rectangle.XMax, normalizedRectCoordinates.x), Mathf.Lerp(rectangle.Y, rectangle.YMax, normalizedRectCoordinates.y));
 	}
 
 	public static Vector2 PointToNormalized(RectInt rectangle, Vector2 point)
 	{
-		return new Vector2(Mathf.InverseLerp(rectangle.x, rectangle.xMax, point.x), Mathf.InverseLerp(rectangle.y, rectangle.yMax, point.y));
+		return new Vector2(Mathf.InverseLerp(rectangle.X, rectangle.XMax, point.x), Mathf.InverseLerp(rectangle.Y, rectangle.YMax, point.y));
 	}
 
 	public override int GetHashCode()
 	{
-		return this.x.GetHashCode() ^ this.width.GetHashCode() << 2 ^ this.y.GetHashCode() >> 2 ^ this.height.GetHashCode() >> 1;
+		unchecked
+		{
+			var hashCode = X;
+			hashCode = (hashCode * 397) ^ Y;
+			hashCode = (hashCode * 397) ^ Width;
+			hashCode = (hashCode * 397) ^ Height;
+			return hashCode;
+		}
 	}
 
-	public override bool Equals(object other)
+	public bool Equals(RectInt other)
 	{
-		if (!(other is RectInt))
-			return false;
-		var rect = (RectInt)other;
-		if (this.x.Equals(rect.x) && this.y.Equals(rect.y) && this.width.Equals(rect.width))
-			return this.height.Equals(rect.height);
-		else
-			return false;
+		return X == other.X && Y == other.Y && Width == other.Width && Height == other.Height;
+	}
+
+	public override bool Equals(object obj)
+	{
+		if (ReferenceEquals(null, obj)) return false;
+		if (ReferenceEquals(this, obj)) return true;
+		return obj.GetType() == GetType() && Equals((RectInt) obj);
+	}
+
+	public static bool operator !=(RectInt left, RectInt right)
+	{
+		return !ReferenceEquals(null, left) && !ReferenceEquals(null, right) && !left.Equals(right);
+	}
+
+	public static bool operator ==(RectInt left, RectInt right)
+	{
+		return !ReferenceEquals(null, left) && !ReferenceEquals(null, right) && left.Equals(right);
 	}
 }

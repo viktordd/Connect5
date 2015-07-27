@@ -1,4 +1,6 @@
-﻿public enum Player : byte
+﻿// ReSharper disable CheckNamespace
+
+public enum Player : byte
 {
 	None = 0,
 	X = 1,

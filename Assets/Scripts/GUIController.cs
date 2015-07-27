@@ -1,79 +1,90 @@
 ﻿using System;
+using JetBrains.Annotations;
 using UnityEngine;
+// ReSharper disable CheckNamespace
+// ReSharper disable MemberCanBePrivate.Global
+// ReSharper disable UnassignedField.Global
+// ReSharper disable UnusedMember.Local
+// ReSharper disable ConvertToConstant.Global
+// ReSharper disable FieldCanBeMadeReadOnly.Global
+// ReSharper disable UseNullPropagation
+// ReSharper disable ConvertPropertyToExpressionBody
 
-public class GUIController : MonoBehaviour
+[UsedImplicitly]
+public class GuiController : MonoBehaviour
 {
-	public float textWidth = 0.3f;
-	public float buttonWidth = 0.15f;
-	public float xOffset = 0f;
-	public float yOffset = -0.03f;
+	public float TextWidth = 0.3f;
+	public float ButtonWidth = 0.15f;
+	public float XOffset = 0f;
+	public float YOffset = -0.03f;
 
-	public Texture2D player;
-	public Texture2D blue;
-	public Texture2D red;
-	public GUIStyle undo;
-	public GUIStyle undoDisabled;
-	public GUIStyle redo;
-	public GUIStyle redoDisabled;
+	public Texture2D Player;
+	public Texture2D Blue;
+	public Texture2D Red;
+	public GUIStyle Undo;
+	public GUIStyle UndoDisabled;
+	public GUIStyle Redo;
+	public GUIStyle RedoDisabled;
 
-	private float textRatio;
-	private float buttonRatio;
+	public static event Action UndoAction;
+	public static event Action RedoAction;
 
-	public static event Action Undo;
-	public static event Action Redo;
+	public static bool UndoEnabled = false;
+	public static bool RedoEnabled = false;
 
-	public static bool undoEnabled = false;
-	public static bool redoEnabled = false;
-
-	private static Rect boxPos;
-	private static Rect undoPos;
-	private static Rect redoPos;
-	private static Rect textPos;
-
-	public static Player currPlayer = Player.X;
-	public static bool playerDisabled;
+	public static Player CurrPlayer = global::Player.X;
+	public static bool PlayerDisabled;
 
 	public static event Action<float> ScreenChange;
 
-	private int currWidth;
-	private int currHeight;
+	private float _textRatio;
+	private float _buttonRatio;
+
+	private static Rect _boxPos;
+	private static Rect _undoPos;
+	private static Rect _redoPos;
+	private static Rect _textPos;
+
+	private int _currWidth;
+	private int _currHeight;
 
 	void Start()
 	{
-		textRatio = (player.height / (float)player.width);
-		buttonRatio = undo.normal.background.height / (float)undo.normal.background.width;
+		_textRatio = (Player.height / (float)Player.width);
+		_buttonRatio = Undo.normal.background.height / (float)Undo.normal.background.width;
 	}
 
+	// ReSharper disable once InconsistentNaming
 	void OnGUI()
 	{
 		TestForScreenChange();
 
-		if (!playerDisabled)
+		if (!PlayerDisabled)
 		{
-			GUI.DrawTexture(textPos, player);
-			GUI.DrawTexture(textPos, currPlayer == Player.X ? blue : red);
+			GUI.DrawTexture(_textPos, Player);
+			GUI.DrawTexture(_textPos, CurrPlayer == global::Player.X ? Blue : Red);
 		}
 
-		GUI.Box(boxPos, "");
+		GUI.Box(_boxPos, "");
 
-		if (undoEnabled)
+		if (UndoEnabled)
 		{
-			if (GUI.Button(undoPos, String.Empty, undo) && Undo != null)
-				Undo();
+			if (GUI.Button(_undoPos, string.Empty, Undo) && UndoAction != null)
+				UndoAction();
 		}
 		else
 		{
-			GUI.Button(undoPos, String.Empty, undoDisabled);
+			GUI.Button(_undoPos, string.Empty, UndoDisabled);
 		}
 
-		if (redoEnabled)
+		if (RedoEnabled)
 		{
-			if (GUI.Button(redoPos, String.Empty, redo) && Redo != null)
-				Redo();
+			if (GUI.Button(_redoPos, string.Empty, Redo) && RedoAction != null)
+				RedoAction();
 		}
 		else
 		{
-			GUI.Button(redoPos, String.Empty, redoDisabled);
+			GUI.Button(_redoPos, string.Empty, RedoDisabled);
 		}
 
 		if (Input.GetKeyDown(KeyCode.Escape)) { Application.Quit(); }
@@ -81,10 +92,10 @@ public class GUIController : MonoBehaviour
 
 	private void TestForScreenChange()
 	{
-		if (currWidth != Screen.width || currHeight != Screen.height)
+		if (_currWidth != Screen.width || _currHeight != Screen.height)
 		{
-			currWidth = Screen.width;
-			currHeight = Screen.height;
+			_currWidth = Screen.width;
+			_currHeight = Screen.height;
 
 			float screenRatio = ScreenRatio;
 			CalcPositions(screenRatio);
@@ -104,24 +115,24 @@ public class GUIController : MonoBehaviour
 		float txtW, txtH, btnW, btnH, xd, yd;
 		if (screenRatio >= 1f)
 		{
-			txtW = textWidth;
-			txtH = txtW * textRatio * screenRatio;
-			btnW = buttonWidth;
-			btnH = btnW * buttonRatio * screenRatio;
-			xd = xOffset;
-			yd = yOffset;
+			txtW = TextWidth;
+			txtH = txtW * _textRatio * screenRatio;
+			btnW = ButtonWidth;
+			btnH = btnW * _buttonRatio * screenRatio;
+			xd = XOffset;
+			yd = YOffset;
 		}
 		else
 		{
-			txtW = textWidth / screenRatio;
-			txtH = txtW * textRatio * screenRatio;
-			btnW = buttonWidth / screenRatio;
-			btnH = btnW * buttonRatio * screenRatio;
-			xd = xOffset / screenRatio;
-			yd = yOffset * screenRatio;
+			txtW = TextWidth / screenRatio;
+			txtH = txtW * _textRatio * screenRatio;
+			btnW = ButtonWidth / screenRatio;
+			btnH = btnW * _buttonRatio * screenRatio;
+			xd = XOffset / screenRatio;
+			yd = YOffset * screenRatio;
 		}
 
-		textPos = new Rect(0f, 0f, Screen.width * txtW, Screen.height * txtH);
+		_textPos = new Rect(0f, 0f, Screen.width * txtW, Screen.height * txtH);
 
 		float left1 = Screen.width - Screen.width * (2 * btnW + xd);
 		float left2 = Screen.width - Screen.width * (btnW + xd);
@@ -130,15 +141,15 @@ public class GUIController : MonoBehaviour
 		float width = Screen.width * btnW;
 		float height = Screen.height * btnH;
 
-		boxPos = new Rect(left1, top, totalWidth, height);
-		undoPos = new Rect(left1, top, width, height);
-		redoPos = new Rect(left2, top, width, height);
+		_boxPos = new Rect(left1, top, totalWidth, height);
+		_undoPos = new Rect(left1, top, width, height);
+		_redoPos = new Rect(left2, top, width, height);
 	}
 
 	public static bool InGui(Vector2 pos)
 	{
 		pos = new Vector2(pos.x, Screen.height - pos.y);
-		bool inGui = textPos.Contains(pos) || boxPos.Contains(pos);
+		bool inGui = _textPos.Contains(pos) || _boxPos.Contains(pos);
 		return inGui;
 	}
 }

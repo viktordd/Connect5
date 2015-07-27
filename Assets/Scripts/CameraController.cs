@@ -1,38 +1,47 @@
 ﻿using System;
+using JetBrains.Annotations;
 using UnityEngine;
+// ReSharper disable CheckNamespace
+// ReSharper disable MemberCanBePrivate.Global
+// ReSharper disable UnassignedField.Global
+// ReSharper disable UnusedMember.Local
+// ReSharper disable FieldCanBeMadeReadOnly.Global
+// ReSharper disable ConvertToConstant.Global
+// ReSharper disable UseNullPropagation
 
+[UsedImplicitly]
 public class CameraController : MonoBehaviour
 {
-	public float moveDeadZone = 0.05f;
-	public float minZoom = 2.5f;
-	public float maxZoom = 25f;
-	private float minZ;
-	private float maxZ;
+	public float MoveDeadZone = 0.05f;
+	public float MinZoom = 2.5f;
+	public float MaxZoom = 15f;
+	public LayerMask SquareMask;
 
-	public LayerMask squareMask;
+	public float Drag = 0.015f;
+	public float MaxVelocity = 0.6f;
+
+	private float _minZ;
+	private float _maxZ;
 
 	public static event Func<RectInt, BoardSize> IncreaseSize;
 	public static event Action MoveBegan;
 
-	public float drag;
-	public float maxVelocity;
+	private float _zeroCount;
+	private bool _isVelocity;
+	private Vector2 _velocityDir;
+	private float _velocityMag;
+	private Vector2 _velocity;
 
-	private float zeroCount;
-	private bool isVelocity;
-	private Vector2 velocityDir;
-	private float velocityMag;
-	private Vector2 velocity;
+	private bool _moveBegan;
+	private Vector2 _initTPos;
+	private Vector2 _prevTPos;
+	private Vector2 _prevT0Pos;
+	private Vector2 _prevT1Pos;
 
-	private bool moveBegan;
-	private Vector2 initTPos;
-	private Vector2 prevTPos;
-	private Vector2 prevT0Pos;
-	private Vector2 prevT1Pos;
+	private bool _init;
+	private byte _initSizeCheck;
 
-	private bool init;
-	private byte initSizeCheck;
-
-	private BoardSize boardSize = new BoardSize();
+	private BoardSize _boardSize = new BoardSize();
 
 	void Start()
 	{
@@ -42,37 +51,32 @@ public class CameraController : MonoBehaviour
 
 	void OnEnable()
 	{
-		GUIController.ScreenChange += GUIController_ScreenChange;
+		GuiController.ScreenChange += GUIController_ScreenChange;
 	}
 
 	void OnDisable()
 	{
-		GUIController.ScreenChange -= GUIController_ScreenChange;
+		GuiController.ScreenChange -= GUIController_ScreenChange;
 	}
 
 	private void Init()
 	{
-		init = true;
-		initSizeCheck = 0;
-	}
-
-	private void IsInit()
-	{
-		init = initSizeCheck++ < 4;
+		_init = true;
+		_initSizeCheck = 0;
 	}
 
 	private void GUIController_ScreenChange(float screenRatio)
 	{
 		if (screenRatio >= 1f)
-			minZ = minZoom;
+			_minZ = MinZoom;
 		else
-			minZ = minZoom / screenRatio;
+			_minZ = MinZoom / screenRatio;
 
-		if (!init)
+		if (!_init)
 		{
-			camera.orthographicSize = camera.orthographicSize / screenRatio;
+			GetComponent<Camera>().orthographicSize = GetComponent<Camera>().orthographicSize / screenRatio;
 
-			if (!boardSize.max)
+			if (!_boardSize.Max)
 				OnIncreaseSize(Vector2.zero, true, true);
 
 			SetMaxZoom(screenRatio);
@@ -86,33 +90,33 @@ public class CameraController : MonoBehaviour
 
 	private void SetMaxZoom(float screenRatio)
 	{
-		maxZ = Mathf.Min(new[] { maxZoom, boardSize.rect.width / 2 / screenRatio, boardSize.rect.height / 2 });
+		_maxZ = Mathf.Min(MaxZoom, _boardSize.Rect.width / 2 / screenRatio, _boardSize.Rect.height / 2);
 		SetSize();
 	}
 
 	private void SetSize(float sizeDelta = 0)
 	{
-		if (!init)
-			camera.orthographicSize = Mathf.Clamp(camera.orthographicSize + sizeDelta, minZ, maxZ);
+		if (!_init)
+			GetComponent<Camera>().orthographicSize = Mathf.Clamp(GetComponent<Camera>().orthographicSize + sizeDelta, _minZ, _maxZ);
 	}
 
 	void FixedUpdate()
 	{
-		if (isVelocity)
+		if (_isVelocity)
 		{
 			if (Input.touchCount > 0)
 			{
-				isVelocity = false;
+				_isVelocity = false;
 				return;
 			}
 
-			velocityMag -= drag;
-			if (velocityMag <= 0)
+			_velocityMag -= Drag;
+			if (_velocityMag <= 0)
 			{
-				isVelocity = false;
+				_isVelocity = false;
 				return;
 			}
-			velocity = velocityDir * velocityMag;
+			_velocity = _velocityDir * _velocityMag;
 
 			OnPosChange(false);
 		}
@@ -122,49 +126,49 @@ public class CameraController : MonoBehaviour
 	{
 		bool posChanged = false, sizeChanged = false;
 
-		if (init)
+		while (_init)
 		{
 			OnIncreaseSize(Vector2.zero, true);
-			IsInit();
+			_init = _initSizeCheck++ < 4;
 			return;
 		}
 
 		switch (Input.touchCount)
 		{
 			case 1:
-				Touch t = Input.GetTouch(0);
+				var t = Input.GetTouch(0);
 				switch (t.phase)
 				{
 					case TouchPhase.Began:
-						initTPos = t.position;
-						moveBegan = false;
+						_initTPos = t.position;
+						_moveBegan = false;
 						break;
 
 					case TouchPhase.Moved:
-						if (t.position == prevTPos)
+						if (t.position == _prevTPos)
 						{
-							zeroCount += Time.deltaTime;
-							if (zeroCount > t.deltaTime)
-								velocity = Vector2.zero;
+							_zeroCount += Time.deltaTime;
+							if (_zeroCount > t.deltaTime)
+								_velocity = Vector2.zero;
 						}
 						else
 						{
-							zeroCount = 0;
+							_zeroCount = 0;
 
-							if (moveBegan)
+							if (_moveBegan)
 							{
-								velocity = GetScreenToWorldDistance(t.position, prevTPos);
+								_velocity = GetScreenToWorldDistance(t.position, _prevTPos);
 								posChanged = true;
 							}
 							else
 							{
-								var dist = GetScreenToWorldDistance(t.position, initTPos);
-								float magnitude = dist.magnitude;
-								if (magnitude > moveDeadZone)
+								var dist = GetScreenToWorldDistance(t.position, _initTPos);
+								var magnitude = dist.magnitude;
+								if (magnitude > MoveDeadZone)
 								{
-									velocity = dist.normalized * (magnitude - moveDeadZone);
+									_velocity = dist.normalized * (magnitude - MoveDeadZone);
 									posChanged = true;
-									moveBegan = true;
+									_moveBegan = true;
 									if (MoveBegan != null)
 										MoveBegan();
 								}
@@ -173,56 +177,56 @@ public class CameraController : MonoBehaviour
 						break;
 
 					case TouchPhase.Ended:
-						if (moveBegan)
+						if (_moveBegan)
 						{
-							velocityMag = velocity.magnitude;
-							if (velocityMag > 0)
+							_velocityMag = _velocity.magnitude;
+							if (_velocityMag > 0)
 							{
-								isVelocity = true;
-								velocityDir = velocity.normalized;
-								if (velocityMag > maxVelocity)
+								_isVelocity = true;
+								_velocityDir = _velocity.normalized;
+								if (_velocityMag > MaxVelocity)
 								{
-									velocityMag = maxVelocity;
-									velocity = velocityDir * velocityMag;
+									_velocityMag = MaxVelocity;
+									_velocity = _velocityDir * _velocityMag;
 								}
 								posChanged = true;
 							}
 						}
 						break;
 				}
-				prevTPos = t.position;
+				_prevTPos = t.position;
 				break;
 
 			case 2:
-				Touch t0 = Input.GetTouch(0);
-				Touch t1 = Input.GetTouch(1);
+				var t0 = Input.GetTouch(0);
+				var t1 = Input.GetTouch(1);
 
 				if (t0.phase != TouchPhase.Began && t1.phase != TouchPhase.Began &&
 					(t0.phase == TouchPhase.Moved || t1.phase == TouchPhase.Moved))
 				{
-					float touchDeltaMag = ((Vector2)(camera.ScreenToWorldPoint(t0.position) - camera.ScreenToWorldPoint(t1.position))).magnitude;
+					var touchDeltaMag = ((Vector2)(GetComponent<Camera>().ScreenToWorldPoint(t0.position) - GetComponent<Camera>().ScreenToWorldPoint(t1.position))).magnitude;
 
-					Vector2 t0Prev = camera.ScreenToWorldPoint(prevT0Pos);
-					Vector2 t1Prev = camera.ScreenToWorldPoint(prevT1Pos);
-					float prevTouchDeltaMag = (t0Prev - t1Prev).magnitude;
+					Vector2 t0Prev = GetComponent<Camera>().ScreenToWorldPoint(_prevT0Pos);
+					Vector2 t1Prev = GetComponent<Camera>().ScreenToWorldPoint(_prevT1Pos);
+					var prevTouchDeltaMag = (t0Prev - t1Prev).magnitude;
 
 					var sizeDelta = prevTouchDeltaMag - touchDeltaMag;
 					SetSize(sizeDelta);
 					sizeChanged = true;
 
-					Vector2 midpoint = camera.ScreenToWorldPoint(Vector2.Lerp(t0.position, t1.position, 0.5f));
-					Vector2 midpointPrev = Vector2.Lerp(t0Prev, t1Prev, 0.5f);
+					Vector2 midpoint = GetComponent<Camera>().ScreenToWorldPoint(Vector2.Lerp(t0.position, t1.position, 0.5f));
+					var midpointPrev = Vector2.Lerp(t0Prev, t1Prev, 0.5f);
 
-					velocity = midpointPrev - midpoint;
+					_velocity = midpointPrev - midpoint;
 					posChanged = true;
 				}
 				if (t0.phase == TouchPhase.Canceled || t0.phase == TouchPhase.Ended)
-					prevTPos = t1.position;
+					_prevTPos = t1.position;
 				if (t1.phase == TouchPhase.Canceled || t1.phase == TouchPhase.Ended)
-					prevTPos = t0.position;
+					_prevTPos = t0.position;
 
-				prevT0Pos = t0.position;
-				prevT1Pos = t1.position;
+				_prevT0Pos = t0.position;
+				_prevT1Pos = t1.position;
 				break;
 
 		}
@@ -235,78 +239,80 @@ public class CameraController : MonoBehaviour
 
 	private void OnPosChange(bool sizeChanged)
 	{
-		camera.transform.position += (Vector3) velocity;
-		if (!boardSize.max)
-			OnIncreaseSize(velocity, sizeChanged);
+		// ReSharper disable once RedundantCast
+		GetComponent<Camera>().transform.position += (Vector3) _velocity;
+		if (!_boardSize.Max)
+			OnIncreaseSize(_velocity, sizeChanged);
 
 		Vector2 cameraDelta;
-		if (!init && OutOfBounds(out cameraDelta))
+		if (!_init && OutOfBounds(out cameraDelta))
 		{
-			camera.transform.position += (Vector3) cameraDelta;
+			// ReSharper disable once RedundantCast
+			GetComponent<Camera>().transform.position += (Vector3) cameraDelta;
 		}
 	}
 
 	private Vector3 GetScreenToWorldDistance(Vector2 pos1, Vector2 pos2)
 	{
-		Vector3 delta = camera.ScreenToWorldPoint(pos1 - pos2);
-		return camera.ScreenToWorldPoint(Vector2.zero) - delta;
+		var delta = GetComponent<Camera>().ScreenToWorldPoint(pos1 - pos2);
+		return GetComponent<Camera>().ScreenToWorldPoint(Vector2.zero) - delta;
 	}
 
 	private void OnIncreaseSize(Vector2 cameraDelta, bool checkAllSides, bool skipMaxZoom = false )
 	{
 		const float dist = 0.55f;
-		Vector3 ll = camera.ScreenToWorldPoint(Vector2.zero);
-		Vector3 ur = camera.ScreenToWorldPoint(new Vector2(Screen.width, Screen.height));
+		var ll = GetComponent<Camera>().ScreenToWorldPoint(Vector2.zero);
+		var ur = GetComponent<Camera>().ScreenToWorldPoint(new Vector2(Screen.width, Screen.height));
 		var changed = false;
-		RectInt rect = RectInt.zero;
+		var rect = RectInt.Zero;
 
 		Collider2D check;
-		var pos = camera.transform.position;
+		var pos = GetComponent<Camera>().transform.position;
 		if (cameraDelta.y > 0 || checkAllSides) // up
 		{
-			check = Physics2D.OverlapPoint(new Vector2(pos.x, ur.y + dist), squareMask);
+			check = Physics2D.OverlapPoint(new Vector2(pos.x, ur.y + dist), SquareMask);
 			if (check == null)
 			{
 				changed = true;
-				rect.height = 1;
+				rect.Height = 1;
 			}
 		}
 
 		if (cameraDelta.x > 0 || checkAllSides) // right
 		{
-			check = Physics2D.OverlapPoint(new Vector2(ur.x + dist, pos.y), squareMask);
+			check = Physics2D.OverlapPoint(new Vector2(ur.x + dist, pos.y), SquareMask);
 			if (check == null)
 			{
 				changed = true;
-				rect.width = 1;
+				rect.Width = 1;
 			}
 		}
 
 		if (cameraDelta.y < 0 || checkAllSides) // down
 		{
-			check = Physics2D.OverlapPoint(new Vector2(pos.x, ll.y - dist), squareMask);
+			check = Physics2D.OverlapPoint(new Vector2(pos.x, ll.y - dist), SquareMask);
 			if (check == null)
 			{
 				changed = true;
-				rect.y = 1;
+				rect.Y = 1;
 			}
 		}
 
 		if (cameraDelta.x < 0 || checkAllSides) // left
 		{
-			check = Physics2D.OverlapPoint(new Vector2(ll.x - dist, pos.y), squareMask);
+			check = Physics2D.OverlapPoint(new Vector2(ll.x - dist, pos.y), SquareMask);
 			if (check == null)
 			{
 				changed = true;
-				rect.x = 1;
+				rect.X = 1;
 			}
 		}
 		if (!changed || IncreaseSize == null)
 			return;
 
-		boardSize = IncreaseSize(rect);
+		_boardSize = IncreaseSize(rect);
 		if (!skipMaxZoom)
-			SetMaxZoom(GUIController.ScreenRatio);
+			SetMaxZoom(GuiController.ScreenRatio);
 	}
 
 	private bool OutOfBounds(out Vector2 cameraDelta)
@@ -314,31 +320,31 @@ public class CameraController : MonoBehaviour
 		var outOfBounds = false;
 		cameraDelta = Vector2.zero;
 
-		var ll = camera.ScreenToWorldPoint(Vector2.zero);
-		var ur = camera.ScreenToWorldPoint(new Vector2(Screen.width, Screen.height));
+		var ll = GetComponent<Camera>().ScreenToWorldPoint(Vector2.zero);
+		var ur = GetComponent<Camera>().ScreenToWorldPoint(new Vector2(Screen.width, Screen.height));
 
-		if (ll.x < boardSize.rect.xMin)
+		if (ll.x < _boardSize.Rect.xMin)
 		{
 			outOfBounds = true;
-			cameraDelta = new Vector2(boardSize.rect.xMin - ll.x, cameraDelta.y);
+			cameraDelta = new Vector2(_boardSize.Rect.xMin - ll.x, cameraDelta.y);
 		}
 
-		if (ll.y < boardSize.rect.yMin)
+		if (ll.y < _boardSize.Rect.yMin)
 		{
 			outOfBounds = true;
-			cameraDelta = new Vector2(cameraDelta.x, boardSize.rect.yMin - ll.y);
+			cameraDelta = new Vector2(cameraDelta.x, _boardSize.Rect.yMin - ll.y);
 		}
 
-		if (ur.x > boardSize.rect.xMax)
+		if (ur.x > _boardSize.Rect.xMax)
 		{
 			outOfBounds = true;
-			cameraDelta = new Vector2(boardSize.rect.xMax - ur.x, cameraDelta.y);
+			cameraDelta = new Vector2(_boardSize.Rect.xMax - ur.x, cameraDelta.y);
 		}
 
-		if (ur.y > boardSize.rect.yMax)
+		if (ur.y > _boardSize.Rect.yMax)
 		{
 			outOfBounds = true;
-			cameraDelta = new Vector2(cameraDelta.x, boardSize.rect.yMax - ur.y);
+			cameraDelta = new Vector2(cameraDelta.x, _boardSize.Rect.yMax - ur.y);
 		}
 		return outOfBounds;
 	}
