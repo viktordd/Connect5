@@ -206,7 +206,7 @@ public class BoardController : TouchController
 
 	private void AddSquare(int x, int y)
 	{
-		var obj = (GameObject)Instantiate(SquarePrefab, new Vector3(x, y, 0), new Quaternion());
+		var obj = Instantiate(SquarePrefab, new Vector3(x, y, 0), new Quaternion());
 		obj.transform.parent = transform;
 	}
 

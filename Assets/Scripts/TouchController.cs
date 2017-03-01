@@ -1,6 +1,5 @@
 ﻿using JetBrains.Annotations;
 using UnityEngine;
-using UnityEngine.EventSystems;
 
 // ReSharper disable CheckNamespace
 // ReSharper disable MemberCanBePrivate.Global
