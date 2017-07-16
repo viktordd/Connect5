@@ -11,40 +11,71 @@ public class Board
 		new[] { Vector2Int.One, -Vector2Int.One }										// right up,	left down
 	};
 
-	private Player[,] _squares;
-	private Vector2Int _offset;
+	private Location[,] location;
+	private Vector2Int offset;
+    private readonly ViewBoundsChange viewBoundsChange;
 
-	public Board() : this(0, 0) { }
-	public Board(int sizeX, int sizeY)
-	{
-		_squares = new Player[sizeX, sizeY];
-		_offset = Vector2Int.Zero;
-	}
+    public Board() : this(0, 0) { }
 
-	public Player this[Vector2Int index]
-	{
-		get { return _squares[index.X + _offset.X, index.Y + _offset.Y]; }
-		set { _squares[index.X + _offset.X, index.Y + _offset.Y] = value; }
-	}
+    public Board(int sizeX, int sizeY) : this(sizeX, sizeY, Vector2Int.Zero) { }
 
-	public Vector2Int GetOffset()
+    public Board(int sizeX, int sizeY, Vector2Int of)
+    {
+        location = new Location[sizeX, sizeY];
+        offset = of;
+        viewBoundsChange = new ViewBoundsChange();
+    }
+
+    private int GetX(int x)
+    {
+        return x + offset.X;
+    }
+
+    private int GetY(int y)
+    {
+        return y + offset.Y;
+    }
+
+    public Location this[int x, int y]
+    {
+        get{ return location[GetX(x), GetY(y)]; }
+        set { location[GetX(x), GetY(y)] = value; }
+    }
+
+    public Location this[Vector2Int index]
 	{
-		return _offset;
+		get { return location[GetX(index.X), GetY(index.Y)]; }
+		set { location[GetX(index.X), GetY(index.Y)] = value; }
+    }
+
+    public void SetPlayer(int x, int y, Player player)
+    {
+        location[GetX(x), GetY(y)].Player = player;
+    }
+
+    public void SetHasSquare(int x, int y, bool hasSquare)
+    {
+        location[GetX(x), GetY(y)].HasSquare = hasSquare;
+    }
+
+    public Vector2Int GetOffset()
+	{
+		return offset;
 	}
 
 	public Vector2Int GetSize()
 	{
-		return new Vector2Int(_squares.GetLength(0), _squares.GetLength(1));
+		return new Vector2Int(location.GetLength(0), location.GetLength(1));
 	}
 
 	public WinLine CheckIfWon(Vector2Int point)
 	{
-		point += _offset;
+		point += offset;
 
-		var sizeX = _squares.GetLength(0);
-		var sizeY = _squares.GetLength(1);
+		var sizeX = location.GetLength(0);
+		var sizeY = location.GetLength(1);
 
-		var currPlayer = _squares[point.X, point.Y];
+	    var currPlayer = location[point.X, point.Y].Player;
 
 		foreach (var dir in Direction)
 		{
@@ -53,7 +84,7 @@ public class Board
 			{
 				var curr = point + dir[i];
 
-				while (0 <= curr.X && curr.X < sizeX && 0 <= curr.Y && curr.Y < sizeY && _squares[curr.X, curr.Y] == currPlayer)
+				while (0 <= curr.X && curr.X < sizeX && 0 <= curr.Y && curr.Y < sizeY && location[curr.X, curr.Y].Player == currPlayer)
 				{
 					numInRow[i]++;
 					curr += dir[i];
@@ -71,23 +102,40 @@ public class Board
 				total--;
 			}
 			if (total == 5)
-				return new WinLine(point + (dir[0] * numInRow[0]) - _offset, point + (dir[1] * numInRow[1]) - _offset, dir);
+				return new WinLine(point + (dir[0] * numInRow[0]) - offset, point + (dir[1] * numInRow[1]) - offset, dir);
 		}
 		return null;
 	}
 
-	public void IncreaseSize(RectInt squaresToAdd)
+	public void IncreaseSize(ViewBoundsChange viewBoundsCheck)
 	{
-		var sizeX = _squares.GetLength(0);
-		var sizeY = _squares.GetLength(1);
+	    NeedSizeChange(viewBoundsCheck);
+	    if (!viewBoundsChange.AddAny)
+	        return;
+        
+        var size = GetSize();
+		var newLoc = new Location[size.X + viewBoundsChange.AddHorizontal, size.Y + viewBoundsChange.AddVertical];
 
-		var newS = new Player[sizeX + squaresToAdd.XMax, sizeY + squaresToAdd.YMax];
+		for (var y = 0; y < size.Y; y++)
+			for (var x = 0; x < size.X; x++)
+				newLoc[x + viewBoundsChange.AddLeft, y + viewBoundsChange.AddBottom] = location[x, y];
 
-		for (var y = 0; y < sizeY; y++)
-			for (var x = 0; x < sizeX; x++)
-				newS[x + squaresToAdd.X, y + squaresToAdd.Y] = _squares[x, y];
-
-		_squares = newS;
-		_offset = new Vector2Int(_offset.X + squaresToAdd.X, _offset.Y + squaresToAdd.Y);
+		location = newLoc;
+		offset = new Vector2Int(offset.X + viewBoundsChange.AddLeft, offset.Y + viewBoundsChange.AddBottom);
 	}
+
+    public void NeedSizeChange(ViewBoundsChange viewBoundsCheck)
+    {
+        var currSize = GetSize();
+
+        var expandTop = GetY(viewBoundsCheck.NewTop) - currSize.Y + 1;
+        var expandRight = GetX(viewBoundsCheck.NewRight) - currSize.X + 1;
+        var expandBottom = -GetY(viewBoundsCheck.NewBottom);
+        var expandLeft = -GetX(viewBoundsCheck.NewLeft);
+        
+        viewBoundsChange.AddTop = expandTop > 0 ? 100 : 0;
+        viewBoundsChange.AddRight = expandRight > 0 ? 100 : 0;
+        viewBoundsChange.AddBottom = expandBottom > 0 ? 100 : 0;
+        viewBoundsChange.AddLeft = expandLeft > 0 ? 100 : 0;
+    }
 }

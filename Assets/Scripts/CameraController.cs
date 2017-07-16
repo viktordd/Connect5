@@ -1,13 +1,9 @@
 ﻿using System;
 using JetBrains.Annotations;
 using UnityEngine;
+
 // ReSharper disable CheckNamespace
-// ReSharper disable MemberCanBePrivate.Global
-// ReSharper disable UnassignedField.Global
 // ReSharper disable UnusedMember.Local
-// ReSharper disable FieldCanBeMadeReadOnly.Global
-// ReSharper disable ConvertToConstant.Global
-// ReSharper disable UseNullPropagation
 
 [UsedImplicitly]
 public class CameraController : MonoBehaviour
@@ -15,441 +11,233 @@ public class CameraController : MonoBehaviour
 	public float MoveDeadZone = 0.05f;
 	public float MinZoom = 2.5f;
 	public float MaxZoom = 15f;
-	public LayerMask SquareMask;
 
 	public float Drag = 0.015f;
 	public float MaxVelocity = 0.6f;
 
-	private float _minZ;
-	private float _maxZ;
+    public event Action<ViewBoundsChange> ScreenPositionChanged;
+    public event Action ScreenRatioChanged;
 
-	public static event Func<RectInt, BoardSize> IncreaseSize;
-	public static event Action MoveBegan;
+    private float zeroCount;
+	private Vector2 velocityDir;
+	private float velocityMag;
+	private Vector2 velocity;
+    
+    private bool moveBegan;
+    private Vector2 initTPos;
 
-	private float _zeroCount;
-	private bool _isVelocity;
-	private Vector2 _velocityDir;
-	private float _velocityMag;
-	private Vector2 _velocity;
+    private int currWidth;
+    private int currHeight;
 
-	private bool _moveBegan;
-    private Vector2 _initTPos;
-	private Vector2 _prevTPos;
-	private Vector2 _prevT0Pos;
-	private Vector2 _prevT1Pos;
+    private new Camera camera;
+    private TouchController touchController;
 
-	private bool _init;
+    private ViewBoundsChange viewBoundsCheck;
 
-	private BoardSize _boardSize = new BoardSize();
-
-	void Start()
+    public void Start()
 	{
-		Init();
-		GuiController_ScreenChange(1f);
-	}
+	    currWidth = Screen.width;
+	    currHeight = Screen.height;
 
-	void OnEnable()
-	{
-		GuiController.ScreenChange += GuiController_ScreenChange;
-	}
+	    viewBoundsCheck = new ViewBoundsChange();
+        
+	    camera = GetComponent<Camera>();
 
-	void OnDisable()
-	{
-		GuiController.ScreenChange -= GuiController_ScreenChange;
-	}
-
-	private void Init()
-	{
-		_init = true;
-	    Input.simulateMouseWithTouches = false;
-	}
-
-	private void GuiController_ScreenChange(float screenRatio)
-	{
-		if (screenRatio >= 1f)
-			_minZ = MinZoom;
-		else
-			_minZ = MinZoom / screenRatio;
-
-		if (!_init)
-		{
-		    var cameraComponent = GetComponent<Camera>();
-		    cameraComponent.orthographicSize = cameraComponent.orthographicSize / screenRatio;
-
-			if (!_boardSize.Max)
-				OnIncreaseSize(Vector2.zero, true, true);
-
-			SetMaxZoom(screenRatio);
-
-			Vector2 cameraDelta;
-			if (OutOfBounds(out cameraDelta))
-				SetSize(-cameraDelta.magnitude);
-
-		}
-	}
-
-	private void SetMaxZoom(float screenRatio)
-	{
-		_maxZ = Mathf.Min(MaxZoom, _boardSize.Rect.width / 2 / screenRatio, _boardSize.Rect.height / 2);
-		SetSize();
-	}
-
-	private void SetSize(float sizeDelta = 0)
-	{
-		if (!_init)
-		{
-		    var cameraComponent = GetComponent<Camera>();
-		    cameraComponent.orthographicSize = Mathf.Clamp(cameraComponent.orthographicSize + sizeDelta, _minZ, _maxZ);
-		}
-	}
-
-	void FixedUpdate()
-	{
-		if (_isVelocity)
-		{
-			if (Input.touchCount > 0)
-			{
-				_isVelocity = false;
-				return;
-			}
-
-			_velocityMag -= Drag;
-			if (_velocityMag <= 0)
-			{
-				_isVelocity = false;
-				return;
-			}
-			_velocity = _velocityDir * _velocityMag;
-
-			OnPosChange(false);
-		}
-	}
-
-	void Update()
-	{
-	    CheckTouch();
-	}
-
-    private void CheckTouch()
-    {
-        var posChanged = false;
-        var sizeChanged = false;
-
-        while (_init)
-        {
-            _init = OnIncreaseSize(Vector2.zero, true);
+        touchController = GameObject.Find("TouchController").GetComponent<TouchController>();
+	    if (touchController == null)
             return;
-        }
 
-        var mouseInput = false;
-        if (Input.mousePresent)
-        {
-            Vector2 mousePosition = Input.mousePosition;
+	    touchController.TouchStart += OnTouchStart;
+	    touchController.TouchCancel += OnTouchCancel;
+	    touchController.TouchEnd += OnTouchEnd;
+	    touchController.TouchStationary += OnTouchStationary;
+	    touchController.TouchMove += OnTouchMove;
+	    touchController.MultiTouch += TouchZoom;
+	    touchController.MouseScroll += Zoom;
+	}
 
-            if (Input.GetMouseButtonDown(0))
-            {
-                mouseInput = true;
-                OnTouchStart(mousePosition);
-            }
+    public void OnDestroy()
+    {
+        if (touchController == null)
+            return;
 
-            else if (Input.GetMouseButton(0))
-            {
-                mouseInput = true;
-                if (mousePosition == _prevTPos)
-                    OnTouchStationary();
-                else
-                    OnTouchMove(mousePosition, 0, out posChanged);
-            }
-
-            else if (Input.GetMouseButtonUp(0))
-            {
-                mouseInput = true;
-                OnTouchEnded(out posChanged);
-            }
-
-            var mouseScrollDelta = Input.mouseScrollDelta;
-            if (mouseScrollDelta != Vector2.zero)
-            {
-                mouseInput = true;
-                Zoom(mouseScrollDelta, mousePosition, out posChanged, out sizeChanged);
-            }
-
-            _prevTPos = mousePosition;
-        }
-
-        if (!mouseInput)
-            switch (Input.touchCount)
-            {
-                case 1:
-                    var t = Input.GetTouch(0);
-                    switch (t.phase)
-                    {
-                        case TouchPhase.Began:
-                            OnTouchStart(t.position);
-                            break;
-
-                        case TouchPhase.Stationary:
-                            OnTouchStationary();
-                            break;
-
-                        case TouchPhase.Moved:
-                            OnTouchMove(t.position, t.deltaTime, out posChanged);
-                            break;
-
-                        case TouchPhase.Ended:
-                            OnTouchEnded(out posChanged);
-                            break;
-
-                        default:
-                            //case TouchPhase.Canceled:
-                            _velocity = Vector2.zero;
-                            break;
-                    }
-                    _prevTPos = t.position;
-                    break;
-
-                case 2:
-                    TouchZoom(Input.GetTouch(0), Input.GetTouch(1), out posChanged, out sizeChanged);
-                    break;
-            }
-
-        if (posChanged)
-        {
-            OnPosChange(sizeChanged);
-        }
+        touchController.TouchStart -= OnTouchStart;
+        touchController.TouchCancel -= OnTouchCancel;
+        touchController.TouchEnd -= OnTouchEnd;
+        touchController.TouchStationary -= OnTouchStationary;
+        touchController.TouchMove -= OnTouchMove;
+        touchController.MouseScroll -= Zoom;
     }
+
+    public void FixedUpdate()
+	{
+	    TestForScreenChange();
+	    if (velocityMag <= 0)
+            return;
+        
+	    velocity = velocityDir * velocityMag;
+
+        viewBoundsCheck.Init();
+	    OnScreenPositionChange();
+	    velocityMag -= Drag;
+	}
 
     private void OnTouchStart(Vector2 position)
     {
-        _initTPos = position;
-        _moveBegan = false;
+        initTPos = position;
+        moveBegan = false;
+        velocityMag = 0;
+    }
+
+    private void OnTouchCancel()
+    {
+        moveBegan = false;
     }
 
     private void OnTouchStationary()
     {
-        _velocity = Vector2.zero;
+        velocity = Vector2.zero;
     }
 
-    private void OnTouchMove(Vector2 position, float deltaTime, out bool posChanged)
+    private void OnTouchMove(Vector2 position, float deltaTime, Vector2 prevTPos)
     {
-        posChanged = false;
-
-        if (position == _prevTPos)
+        if (position == prevTPos)
         {
-            _zeroCount += Time.deltaTime;
-            if (_zeroCount > deltaTime)
-                _velocity = Vector2.zero;
+            zeroCount += Time.deltaTime;
+            if (zeroCount > deltaTime)
+                velocity = Vector2.zero;
+            return;
+        }
+
+        zeroCount = 0;
+
+        if (!moveBegan)
+        {
+            var dist = GetScreenToWorldDistance(position, initTPos);
+            var magnitude = dist.magnitude;
+            if (magnitude <= MoveDeadZone)
+                return;
+            velocity = dist.normalized * (magnitude - MoveDeadZone);
+            moveBegan = true;
         }
         else
-        {
-            _zeroCount = 0;
+            velocity = GetScreenToWorldDistance(position, prevTPos);
 
-            if (_moveBegan)
-            {
-                _velocity = GetScreenToWorldDistance(position, _prevTPos);
-                posChanged = true;
-            }
-            else
-            {
-                var dist = GetScreenToWorldDistance(position, _initTPos);
-                var magnitude = dist.magnitude;
-                if (magnitude > MoveDeadZone)
-                {
-                    _velocity = dist.normalized * (magnitude - MoveDeadZone);
-                    posChanged = true;
-                    _moveBegan = true;
-                    if (MoveBegan != null)
-                        MoveBegan();
-                }
-            }
-        }
+        viewBoundsCheck.Init();
+        OnScreenPositionChange();
     }
 
-    private void OnTouchEnded(out bool posChanged)
+    private void OnTouchEnd(Vector2 pos)
     {
-        posChanged = false;
-        if (!_moveBegan)
+        if (!moveBegan)
             return;
+        
+        var mag = velocity.magnitude;
+        velocityDir = velocity.normalized;
 
-        _velocityMag = _velocity.magnitude;
-        if (Math.Abs(_velocityMag) < Drag)
+        if (mag > MaxVelocity)
+        {
+            mag = MaxVelocity;
+            velocity = velocityDir * mag;
+        }
+
+        velocityMag = mag;
+    }
+
+    private void TouchZoom(Vector2 t0Pos, Vector2 t1Pos, Vector2 prevT0Pos, Vector2 prevT1Pos)
+    {
+        var touchDelta = camera.ScreenToWorldPoint(t0Pos) -
+                         camera.ScreenToWorldPoint(t1Pos);
+        var touchDeltaMag = ((Vector2) touchDelta).magnitude;
+
+        Vector2 t0Prev = camera.ScreenToWorldPoint(prevT0Pos);
+        Vector2 t1Prev = camera.ScreenToWorldPoint(prevT1Pos);
+        var prevTouchDeltaMag = (t0Prev - t1Prev).magnitude;
+        
+        viewBoundsCheck.Init();
+
+        SetSize(prevTouchDeltaMag - touchDeltaMag);
+
+        Vector2 midpoint = camera.ScreenToWorldPoint(Vector2.Lerp(t0Pos, t1Pos, 0.5f));
+        var midpointPrev = Vector2.Lerp(t0Prev, t1Prev, 0.5f);
+
+        velocity = midpointPrev - midpoint;
+        OnScreenPositionChange();
+    }
+
+    private void Zoom(Vector2 position, Vector2 mouseScrollDelta)
+    {
+        Vector2 prevPoint = camera.ScreenToWorldPoint(position);
+        
+        viewBoundsCheck.Init();
+
+        SetSize(-mouseScrollDelta.y / 2);
+        
+        Vector2 newPoint = camera.ScreenToWorldPoint(position);
+
+        velocity = prevPoint - newPoint;
+        OnScreenPositionChange();
+    }
+
+    private void SetSize(float sizeDelta = 0)
+    {
+        camera.orthographicSize = Mathf.Clamp(camera.orthographicSize + sizeDelta, MinZoom, MaxZoom);
+    }
+
+    private Vector3 GetScreenToWorldDistance(Vector2 pos1, Vector2 pos2)
+	{
+	    var delta = camera.ScreenToWorldPoint(pos1 - pos2);
+		return camera.ScreenToWorldPoint(Vector2.zero) - delta;
+	}
+
+	private void OnScreenPositionChange()
+	{
+	    camera.transform.position += (Vector3)velocity;
+	    //CheckOutOfBounds();
+
+        if (ScreenPositionChanged == null)
+	        return;
+
+	    viewBoundsCheck.Check();
+	    ScreenPositionChanged(viewBoundsCheck);
+	}
+
+    private void TestForScreenChange()
+    {
+        if (currWidth == Screen.width && currHeight == Screen.height)
+        {
             return;
-
-        _isVelocity = true;
-        _velocityDir = _velocity.normalized;
-        if (_velocityMag > MaxVelocity)
-        {
-            _velocityMag = MaxVelocity;
-            _velocity = _velocityDir * _velocityMag;
         }
-        posChanged = true;
+
+        currWidth = Screen.width;
+        currHeight = Screen.height;
+
+        //CheckOutOfBounds();
+
+        if (ScreenRatioChanged != null)
+            ScreenRatioChanged();
     }
 
-    private void TouchZoom(Touch t0, Touch t1, out bool posChanged, out bool sizeChanged)
-    {
-        posChanged = false;
-        sizeChanged = false;
+    //private void CheckOutOfBounds()
+    //{
+    //    var cameraDelta = Vector2.zero;
+        
+    //    var viewBounds = new ViewBounds();
+    //    viewBounds.Init();
 
-        if (t0.phase != TouchPhase.Began && t1.phase != TouchPhase.Began &&
-            (t0.phase == TouchPhase.Moved || t1.phase == TouchPhase.Moved))
-        {
-            var cameraComponent = GetComponent<Camera>();
+    //    if (viewBounds.Top > BoardSize.Rect.yMax)
+    //        cameraDelta = new Vector2(cameraDelta.x, BoardSize.Rect.yMax - viewBounds.Top);
 
-            var touchDelta = cameraComponent.ScreenToWorldPoint(t0.position) -
-                             cameraComponent.ScreenToWorldPoint(t1.position);
-            var touchDeltaMag = ((Vector2) touchDelta).magnitude;
+    //    if (viewBounds.Right > BoardSize.Rect.xMax)
+    //        cameraDelta = new Vector2(BoardSize.Rect.xMax - viewBounds.Right, cameraDelta.y);
 
-            Vector2 t0Prev = cameraComponent.ScreenToWorldPoint(_prevT0Pos);
-            Vector2 t1Prev = cameraComponent.ScreenToWorldPoint(_prevT1Pos);
-            var prevTouchDeltaMag = (t0Prev - t1Prev).magnitude;
+    //    if (viewBounds.Bottom < BoardSize.Rect.yMin)
+    //        cameraDelta = new Vector2(cameraDelta.x, BoardSize.Rect.yMin - viewBounds.Bottom);
 
-            var sizeDelta = prevTouchDeltaMag - touchDeltaMag;
-            SetSize(sizeDelta);
-            sizeChanged = true;
+    //    if (viewBounds.Left < BoardSize.Rect.xMin)
+    //        cameraDelta = new Vector2(BoardSize.Rect.xMin - viewBounds.Left, cameraDelta.y);
 
-            Vector2 midpoint = cameraComponent.ScreenToWorldPoint(Vector2.Lerp(t0.position, t1.position, 0.5f));
-            var midpointPrev = Vector2.Lerp(t0Prev, t1Prev, 0.5f);
-
-            _velocity = midpointPrev - midpoint;
-            posChanged = true;
-        }
-        if (t0.phase == TouchPhase.Canceled || t0.phase == TouchPhase.Ended)
-            _prevTPos = t1.position;
-        if (t1.phase == TouchPhase.Canceled || t1.phase == TouchPhase.Ended)
-            _prevTPos = t0.position;
-
-        _prevT0Pos = t0.position;
-        _prevT1Pos = t1.position;
-    }
-
-    private void Zoom(Vector2 mouseScrollDelta, Vector2 position, out bool posChanged, out bool sizeChanged)
-    {
-        var sizeDelta = -mouseScrollDelta.y / 2;
-        SetSize(sizeDelta);
-        sizeChanged = true;
-
-        var cameraComponent = GetComponent<Camera>();
-        Vector2 midpoint = cameraComponent.ScreenToWorldPoint(new Vector2(Screen.width / 2f, Screen.height / 2f));
-
-        _velocity = (midpoint - (Vector2) cameraComponent.ScreenToWorldPoint(position)).normalized * sizeDelta;
-        posChanged = true;
-    }
-
-    private void OnPosChange(bool sizeChanged)
-	{
-		// ReSharper disable once RedundantCast
-	    var cameraComponent = GetComponent<Camera>();
-	    cameraComponent.transform.position += (Vector3) _velocity;
-		if (!_boardSize.Max)
-			OnIncreaseSize(_velocity, sizeChanged);
-
-		Vector2 cameraDelta;
-		if (!_init && OutOfBounds(out cameraDelta))
-		{
-			// ReSharper disable once RedundantCast
-			cameraComponent.transform.position += (Vector3) cameraDelta;
-		}
-	}
-
-	private Vector3 GetScreenToWorldDistance(Vector2 pos1, Vector2 pos2)
-	{
-	    var cameraComponent = GetComponent<Camera>();
-	    var delta = cameraComponent.ScreenToWorldPoint(pos1 - pos2);
-		return cameraComponent.ScreenToWorldPoint(Vector2.zero) - delta;
-	}
-
-	private bool OnIncreaseSize(Vector2 cameraDelta, bool checkAllSides, bool skipMaxZoom = false )
-	{
-		const float dist = 0.55f;
-	    var cameraComponent = GetComponent<Camera>();
-	    var ll = cameraComponent.ScreenToWorldPoint(Vector2.zero);
-		var ur = cameraComponent.ScreenToWorldPoint(new Vector2(Screen.width, Screen.height));
-		var changed = false;
-		var rect = RectInt.Zero;
-
-		Collider2D check;
-		var pos = cameraComponent.transform.position;
-		if (cameraDelta.y > 0 || checkAllSides) // up
-		{
-			check = Physics2D.OverlapPoint(new Vector2(pos.x, ur.y + dist), SquareMask);
-			if (check == null)
-			{
-				changed = true;
-				rect.Height = 1;
-			}
-		}
-
-		if (cameraDelta.x > 0 || checkAllSides) // right
-		{
-			check = Physics2D.OverlapPoint(new Vector2(ur.x + dist, pos.y), SquareMask);
-			if (check == null)
-			{
-				changed = true;
-				rect.Width = 1;
-			}
-		}
-
-		if (cameraDelta.y < 0 || checkAllSides) // down
-		{
-			check = Physics2D.OverlapPoint(new Vector2(pos.x, ll.y - dist), SquareMask);
-			if (check == null)
-			{
-				changed = true;
-				rect.Y = 1;
-			}
-		}
-
-		if (cameraDelta.x < 0 || checkAllSides) // left
-		{
-			check = Physics2D.OverlapPoint(new Vector2(ll.x - dist, pos.y), SquareMask);
-			if (check == null)
-			{
-				changed = true;
-				rect.X = 1;
-			}
-		}
-		if (!changed || IncreaseSize == null)
-			return changed;
-
-		_boardSize = IncreaseSize(rect);
-		if (!skipMaxZoom)
-			SetMaxZoom(GuiController.ScreenRatio);
-
-	    return changed;
-	}
-
-	private bool OutOfBounds(out Vector2 cameraDelta)
-	{
-		var outOfBounds = false;
-		cameraDelta = Vector2.zero;
-
-	    var cameraComponent = GetComponent<Camera>();
-	    var ll = cameraComponent.ScreenToWorldPoint(Vector2.zero);
-		var ur = cameraComponent.ScreenToWorldPoint(new Vector2(Screen.width, Screen.height));
-
-		if (ll.x < _boardSize.Rect.xMin)
-		{
-			outOfBounds = true;
-			cameraDelta = new Vector2(_boardSize.Rect.xMin - ll.x, cameraDelta.y);
-		}
-
-		if (ll.y < _boardSize.Rect.yMin)
-		{
-			outOfBounds = true;
-			cameraDelta = new Vector2(cameraDelta.x, _boardSize.Rect.yMin - ll.y);
-		}
-
-		if (ur.x > _boardSize.Rect.xMax)
-		{
-			outOfBounds = true;
-			cameraDelta = new Vector2(_boardSize.Rect.xMax - ur.x, cameraDelta.y);
-		}
-
-		if (ur.y > _boardSize.Rect.yMax)
-		{
-			outOfBounds = true;
-			cameraDelta = new Vector2(cameraDelta.x, _boardSize.Rect.yMax - ur.y);
-		}
-		return outOfBounds;
-	}
+    //    if (cameraDelta != Vector2.zero)
+    //        camera.transform.position += (Vector3)cameraDelta;
+    //}
 }

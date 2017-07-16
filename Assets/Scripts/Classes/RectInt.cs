@@ -148,9 +148,9 @@ public class RectInt
 		Y = source.Y;
 		Width = source.Width;
 		Height = source.Height;
-	}
+    }
 
-	public static RectInt Zero
+    public static RectInt Zero
 	{
 		get
 		{

@@ -1,18 +1,17 @@
 ﻿using System.Collections.Generic;
 using JetBrains.Annotations;
 using UnityEngine;
+using UnityEngine.UI;
+
 // ReSharper disable CheckNamespace
-// ReSharper disable MemberCanBePrivate.Global
-// ReSharper disable UnassignedField.Global
 // ReSharper disable UnusedMember.Local
-// ReSharper disable FieldCanBeMadeReadOnly.Global
-// ReSharper disable ConvertToConstant.Global
-// ReSharper disable UseStringInterpolation
 
 [UsedImplicitly]
-public class BoardController : TouchController
+public class BoardController : MonoBehaviour
 {
-	public LayerMask CheckedMask;
+    public float MaxZoomTouch = 10f;
+    public LayerMask NotCheckedMask;
+    public LayerMask CheckedMask;
 
 	public GameObject SquarePrefab;
 	public Sprite Empty;
@@ -23,229 +22,249 @@ public class BoardController : TouchController
 	public Sprite LineD;
 
 	public float Bezel = 0.5f;
-	public int SizeIncrement = 5;
 
-	public int MaxSizeX = 100;
-	public int MaxSizeY = 100;
+	private LayerMask anySquare;
+	private int notCheckedLayer;
+	private int checkedLayer;
 
-	private Vector2 _squareSize;
+	private List<Vector2Int> undoActions;
+	private List<Vector2Int> redoActions;
+	private Board board;
+	private Player currPlayer;
 
-	private LayerMask _anySquare;
-	private int _notCheckedLayer;
-	private int _checkedLayer;
+	private GameObject currObj;
+	private Vector2Int currPos;
 
-	private List<Vector2Int> _undoActions;
-	private List<Vector2Int> _redoActions;
-	private Board _board;
-	private Player _currPlayer;
+	private GameObject winnerLine;
 
-	private GameObject _currObj;
-	private Vector2Int _currPos;
+    private TouchController touchController;
+    private CameraController cameraController;
+    private Button undo;
+    private Button redo;
+    private Image playerPanel;
+    private Text playerName;
+    private GameObject gameEnd;
 
-	private GameObject _winnerLine;
+    private bool disabled;
 
-	protected override void Start()
+    public void Start()
 	{
-		base.Start();
-		_squareSize = new Vector2(SquarePrefab.transform.localScale.x, SquarePrefab.transform.localScale.y);
+		anySquare = NotCheckedMask | CheckedMask;
+		notCheckedLayer = GetLayerFromMask(NotCheckedMask);
+		checkedLayer = GetLayerFromMask(CheckedMask);
 
-		_anySquare = NotCheckedMask | CheckedMask;
-		_notCheckedLayer = GetLayerFromMask(NotCheckedMask);
-		_checkedLayer = GetLayerFromMask(CheckedMask);
+		undoActions = new List<Vector2Int>();
+		redoActions = new List<Vector2Int>();
+	    board = new Board(100, 100, new Vector2Int(50, 50));
 
-		_undoActions = new List<Vector2Int>();
-		_redoActions = new List<Vector2Int>();
-		_board = new Board();
-		SetPlayerText(Player.X);
-	}
+        undo = GameObject.Find("Canvas/ButtonsPanel/Undo").GetComponent<Button>();
+	    redo = GameObject.Find("Canvas/ButtonsPanel/Redo").GetComponent<Button>();
+	    playerPanel = GameObject.Find("Canvas/PlayerPanel").GetComponent<Image>();
+	    playerName = GameObject.Find("Canvas/PlayerPanel/Name").GetComponent<Text>();
+	    gameEnd = GameObject.Find("Canvas/GameEnd");
+        gameEnd.SetActive(false);
+        undo.interactable = false;
+	    redo.interactable = false;
+        
+	    SetPlayerText(Player.X);
 
-	protected override void Update()
+	    touchController = GameObject.Find("TouchController").GetComponent<TouchController>();
+	    touchController.TouchStart += OnTouchStart;
+	    touchController.TouchEnd += OnTouchEnd;
+	    touchController.TouchCancel += TouchCanceled;
+
+	    cameraController = GameObject.Find("Main Camera").GetComponent<CameraController>();
+	    cameraController.ScreenPositionChanged += OnScreenPositionChanged;
+	    cameraController.ScreenRatioChanged += ClearAndReInit;
+
+	    InitBoard();
+    }
+
+    public void OnDestroy()
 	{
-		if (_winnerLine != null)
-			return;
+	    touchController.TouchStart -= OnTouchStart;
+	    touchController.TouchEnd -= OnTouchEnd;
+	    touchController.TouchCancel -= TouchCanceled;
 
-		base.Update();
-	}
+	    cameraController.ScreenPositionChanged -= OnScreenPositionChanged;
+	    cameraController.ScreenRatioChanged -= ClearAndReInit;
+    }
 
-	protected override void TouchStart(GameObject gObj)
-	{
-		_currObj = gObj;
-		var position = _currObj.transform.position;
-		_currPos = position;
-		var sRenderer = (SpriteRenderer)_currObj.GetComponent<Renderer>();
-		sRenderer.sprite = OnTouch;
-	}
+    private void InitBoard()
+    {
+        var sizeChange = new ViewBoundsChange();
+        sizeChange.Init();
 
-	protected override void TouchCanceled()
-	{
-		var sRenderer = (SpriteRenderer)_currObj.GetComponent<Renderer>();
+        AddSquares(sizeChange.Left, sizeChange.Right, sizeChange.Bottom, sizeChange.Top);
+    }
+
+    public void Update()
+    {
+        var disableTouch = Camera.main.orthographicSize > MaxZoomTouch;
+        if (disableTouch == disabled)
+            return;
+
+        disabled = disableTouch;
+        SetPlayerText(currPlayer);
+    }
+
+    private void OnTouchStart(Vector2 touchPos)
+    {
+        if (disabled || winnerLine != null)
+            return;
+
+        var position = Camera.main.ScreenToWorldPoint(touchPos);
+        var obj = GetSquare(position, NotCheckedMask);
+        if (obj == null)
+            return;
+
+        currObj = obj;
+        var position1 = currObj.transform.position;
+        currPos = position1;
+        var sRenderer = (SpriteRenderer)currObj.GetComponent<Renderer>();
+        sRenderer.sprite = OnTouch;
+    }
+    private void OnTouchEnd(Vector2 touchPos)
+    {
+        if (currObj == null)
+            return;
+        var position = Camera.main.ScreenToWorldPoint(touchPos);
+        var obj = GetSquare(position, NotCheckedMask);
+        if (obj == null)
+            return;
+
+        if (currObj != obj)
+        {
+            TouchCanceled();
+            return;
+        }
+        AddUndo(currPos);
+        SetMark(currPos, currPlayer, currObj);
+        currObj = null;
+    }
+
+    private void TouchCanceled()
+    {
+        if (currObj == null)
+            return;
+        var sRenderer = (SpriteRenderer)currObj.GetComponent<Renderer>();
 		sRenderer.sprite = Empty;
+	    currObj = null;
+    }
+
+    private GameObject GetSquare(Vector2 position, LayerMask mask)
+    {
+        var overlapPointCollider = Physics2D.OverlapPoint(position, mask);
+        return overlapPointCollider == null ? null : overlapPointCollider.gameObject;
+    }
+
+    private void OnScreenPositionChanged(ViewBoundsChange viewBoundsChange)
+    {
+        TouchCanceled();
+
+        if (!viewBoundsChange.AnyChanges)
+            return;
+
+        board.IncreaseSize(viewBoundsChange);
+        
+		AddRemoveSquares(viewBoundsChange);
 	}
 
-	protected override void TouchEnded(GameObject gObj = null)
+    private void ClearAndReInit()
+    {
+        var count = transform.childCount;
+        for (var i = 0; i < count; i++)
+            RemoveSquare(transform.GetChild(i).gameObject);
+
+        InitBoard();
+    }
+
+    private void AddRemoveSquares(ViewBoundsChange viewBoundsChange)
+    {
+        if (viewBoundsChange.AddTop > 0)
+            AddSquares(viewBoundsChange.NewLeft, viewBoundsChange.NewRight, viewBoundsChange.Top + 1, viewBoundsChange.NewTop);
+        else if (viewBoundsChange.AddTop < 0)
+            RemoveSquares(viewBoundsChange.Left, viewBoundsChange.Right, viewBoundsChange.NewTop + 1, viewBoundsChange.Top);
+
+        if (viewBoundsChange.AddRight > 0)
+            AddSquares(viewBoundsChange.Right + 1, viewBoundsChange.NewRight, viewBoundsChange.NewBottom, viewBoundsChange.NewTop);
+        else if (viewBoundsChange.AddRight < 0)
+            RemoveSquares(viewBoundsChange.NewRight + 1, viewBoundsChange.Right, viewBoundsChange.Bottom, viewBoundsChange.Top);
+
+        if (viewBoundsChange.AddBottom > 0)
+            AddSquares(viewBoundsChange.NewLeft, viewBoundsChange.NewRight, viewBoundsChange.NewBottom, viewBoundsChange.Bottom - 1);
+        else if (viewBoundsChange.AddBottom < 0)
+            RemoveSquares(viewBoundsChange.Left, viewBoundsChange.Right, viewBoundsChange.Bottom, viewBoundsChange.NewBottom - 1);
+
+        if (viewBoundsChange.AddLeft > 0)
+            AddSquares(viewBoundsChange.NewLeft, viewBoundsChange.Left - 1, viewBoundsChange.NewBottom, viewBoundsChange.NewTop);
+        else if (viewBoundsChange.AddLeft < 0)
+            RemoveSquares(viewBoundsChange.Left, viewBoundsChange.NewLeft - 1, viewBoundsChange.Bottom, viewBoundsChange.Top);
+    }
+
+    private void AddSquares(int xFrom, int xTo, int yFrom, int yTo)
+    {
+        for (var y = yFrom; y <= yTo; y++)
+        for (var x = xFrom; x <= xTo; x++)
+            AddSquare(x, y);
+    }
+
+    private void RemoveSquares(int xFrom, int xTo, int yFrom, int yTo)
+    {
+        for (var y = yFrom; y <= yTo; y++)
+        for (var x = xFrom; x <= xTo; x++)
+            RemoveSquare(x, y);
+    }
+
+    private void AddSquare(int x, int y)
 	{
-		if (_currObj != gObj)
-		{
-			TouchCanceled();
-			return;
-		}
-		SetMark(_currPos, _currPlayer, _currObj);
-		AddUndo(_currPos);
-	}
+	    var location = board[x, y];
+	    if (location.HasSquare)
+	        return;
+        
+        var square = Instantiate(SquarePrefab, new Vector3(x, y, 0), new Quaternion());
+		square.transform.parent = transform;
+	    SetPlayerSprite(location.Player, square);
+        
+	    location.HasSquare = true;
+        board[x, y] = location;
+    }
 
-	protected override void TouchEnabledChanged()
-	{
-		SetPlayerText(_currPlayer);
-	}
+    private void RemoveSquare(int x, int y)
+    {
+        var location = board[x, y];
+        if (!location.HasSquare)
+            return;
 
-	void OnEnable()
-	{
-		CameraController.IncreaseSize += CameraController_IncreaseSize;
-		GuiController.RedoAction += GuiControllerRedoAction;
-		GuiController.UndoAction += GuiControllerUndoAction;
-	}
+        var square = GetSquare(new Vector2(x, y), anySquare);
+        if (square == null)
+            return;
 
-	void OnDisable()
-	{
-		CameraController.IncreaseSize -= CameraController_IncreaseSize;
-		GuiController.RedoAction -= GuiControllerRedoAction;
-		GuiController.UndoAction -= GuiControllerUndoAction;
-	}
+        Destroy(square);
 
-	private BoardSize CameraController_IncreaseSize(RectInt sides)
-	{
-		var squaresToAdd = sides * SizeIncrement;
-		var currSize = _board.GetSize();
+        location.HasSquare = false;
+        board[x, y] = location;
+    }
 
-		var isMaxX = currSize.X == MaxSizeX || currSize.X + squaresToAdd.XMax > MaxSizeX;
-		var isMaxY = currSize.Y == MaxSizeY || currSize.Y + squaresToAdd.YMax > MaxSizeY;
+    private void RemoveSquare(GameObject square)
+    {
+        var x = (int)square.transform.position.x;
+        var y = (int)square.transform.position.y;
 
-		if (isMaxX && isMaxY)
-			return GetBoardSize(true);
+        Destroy(square);
 
-		if (isMaxX)
-		{
-			var width = MaxSizeX - currSize.X;
-			if (width <= 0)
-			{
-				squaresToAdd.X = 0;
-				squaresToAdd.Width = 0;
-			}
-			else if (squaresToAdd.X > 0 && squaresToAdd.Width > 0)
-			{
-				var half = width / 2f;
-				squaresToAdd.X = Mathf.FloorToInt(half);
-				squaresToAdd.Width = Mathf.CeilToInt(half);
-			}
-			else if (squaresToAdd.X > 0)
-				squaresToAdd.X = width;
-
-			else if (squaresToAdd.Width > 0)
-				squaresToAdd.Width = width;
-		}
-		if (isMaxY)
-		{
-			var height = MaxSizeY - currSize.Y;
-			if (height <= 0)
-			{
-				squaresToAdd.Y = 0;
-				squaresToAdd.Height = 0;
-			}
-			else if (squaresToAdd.X > 0 && squaresToAdd.Width > 0)
-			{
-				var half = height / 2f;
-				squaresToAdd.Y = Mathf.FloorToInt(half);
-				squaresToAdd.Height = Mathf.CeilToInt(half);
-			}
-			if (squaresToAdd.Y > 0)
-				squaresToAdd.Y = height;
-
-			else if (squaresToAdd.Height > 0)
-				squaresToAdd.Height = height;
-		}
-
-		if (squaresToAdd == RectInt.Zero)
-			return GetBoardSize(false);
-
-		AddSquares(squaresToAdd);
-
-		_board.IncreaseSize(squaresToAdd);
-
-		Debug.Log(string.Format("Expanding board by {0} to {1}", squaresToAdd, _board.GetSize()));
-
-		return GetBoardSize(false);
-	}
-
-	private void AddSquares(RectInt squaresToAdd)
-	{
-		var ll = _board.GetOffset() * -1;
-		var ur = _board.GetSize() + ll;
-		var newLl = new Vector2Int(ll.X - squaresToAdd.X, ll.Y - squaresToAdd.Y);
-		var newUr = new Vector2Int(ur.X + squaresToAdd.Width, ur.Y + squaresToAdd.Height);
-
-		if (ur.Y < newUr.Y || newLl.Y < ll.Y)
-			for (var x = newLl.X; x < newUr.X; x++) //horizontal
-			{
-				for (var y = ur.Y; y < newUr.Y; y++) //up + diagonals
-					AddSquare(x, y);
-
-				for (var y = newLl.Y; y < ll.Y; y++) //down + diagonals
-					AddSquare(x, y);
-			}
-
-		if (ur.X < newUr.X || newLl.X < ll.X)
-			for (var y = ll.Y; y < ur.Y; y++) //horizontal
-			{
-				for (var x = ur.X; x < newUr.X; x++) //right
-					AddSquare(x, y);
-
-				for (var x = newLl.X; x < ll.X; x++) //left
-					AddSquare(x, y);
-			}
-	}
-
-	private void AddSquare(int x, int y)
-	{
-		var obj = Instantiate(SquarePrefab, new Vector3(x, y, 0), new Quaternion());
-		obj.transform.parent = transform;
-	}
-
-	private BoardSize GetBoardSize(bool max)
-	{
-		var ll = _board.GetOffset() * -1;
-		var ur = _board.GetSize() + ll;
-		var halfWidth = _squareSize / 2f;
-		var bezelVector = Vector2.one * Bezel;
-
-		var lowerLeft = (Vector2)ll - halfWidth - bezelVector;
-		var upperRight = (Vector2)ur - halfWidth + bezelVector;
-
-		return new BoardSize(lowerLeft, upperRight, max);
-	}
+        var location = board[x, y];
+        location.HasSquare = false;
+        board[x, y] = location;
+    }
 
 	private void SetMark(Vector2Int pos, Player player, GameObject square)
 	{
-		_board[pos] = player;
+	    board.SetPlayer(pos.X, pos.Y, player);
 
-		var hasMark = true;
-		var sRenderer = (SpriteRenderer)square.GetComponent<Renderer>();
-		switch (player)
+	    if (SetPlayerSprite(player, square))
 		{
-			case Player.X:
-				sRenderer.sprite = CheckedX;
-				break;
-			case Player.O:
-				sRenderer.sprite = CheckedO;
-				break;
-			default:
-				hasMark = false;
-				sRenderer.sprite = Empty;
-				break;
-		}
-		if (hasMark)
-		{
-			square.layer = _checkedLayer;
-			var winLine = _board.CheckIfWon(pos);
+			var winLine = board.CheckIfWon(pos);
 			if (winLine == null)
 			{
 				SetPlayerText(player.Next());
@@ -253,79 +272,112 @@ public class BoardController : TouchController
 			else
 			{
 				DrawLine(winLine);
-			}
+                
+                gameEnd.SetActive(true);
+
+			    var wins = gameEnd.transform.Find("Wins").gameObject.GetComponent<Text>();
+			    wins.text = player.GetText() + " Player Wins!";
+
+			    undo.interactable = false;
+			    redo.interactable = false;
+            }
 		}
 		else
 		{
-			square.layer = _notCheckedLayer;
-			if (_winnerLine == null)
+			if (winnerLine == null)
 			{
-				SetPlayerText(_currPlayer.Next());
+				SetPlayerText(currPlayer.Next());
 			}
 			else
 			{
-				Destroy(_winnerLine);
+				Destroy(winnerLine);
 			}
 		}
 	}
 
-	private void AddUndo(Vector2Int currPos)
+    private bool SetPlayerSprite(Player player, GameObject square)
+    {
+        var sRenderer = (SpriteRenderer) square.GetComponent<Renderer>();
+        switch (player)
+        {
+            case Player.X:
+                sRenderer.sprite = CheckedX;
+                square.layer = checkedLayer;
+                return true;
+
+            case Player.O:
+                sRenderer.sprite = CheckedO;
+                square.layer = checkedLayer;
+                return true;
+
+            default:
+                sRenderer.sprite = Empty;
+                square.layer = notCheckedLayer;
+                return false;
+        }
+    }
+
+    private void AddUndo(Vector2Int pos)
 	{
-		_redoActions.Clear();
-		_undoActions.Add(currPos);
-		GuiController.UndoEnabled = true;
-		GuiController.RedoEnabled = false;
+		redoActions.Clear();
+		undoActions.Add(pos);
+	    undo.interactable = true;
+	    redo.interactable = false;
 	}
 
-	void GuiControllerUndoAction()
+	public void OnUndo()
 	{
-		var last = _undoActions.Count - 1;
-		var pos = _undoActions[last];
+		var last = undoActions.Count - 1;
+		var pos = undoActions[last];
 
-		var square = GetSquare(pos, _anySquare);
+		var square = GetSquare(pos, anySquare);
 		if (square == null)
 			return;
 
 		SetMark(pos, Player.None, square);
 
-		_undoActions.RemoveAt(last);
-		_redoActions.Add(pos);
-		GuiController.UndoEnabled = _undoActions.Count > 0;
-		GuiController.RedoEnabled = true;
-	}
+		undoActions.RemoveAt(last);
+		redoActions.Add(pos);
+	    undo.interactable = undoActions.Count > 0;
+	    redo.interactable = true;
+    }
 
-	void GuiControllerRedoAction()
+	public void OnRedo()
 	{
-		var last = _redoActions.Count - 1;
-		var pos = _redoActions[last];
+		var last = redoActions.Count - 1;
+		var pos = redoActions[last];
 
-		var square = GetSquare(pos, _anySquare);
+		var square = GetSquare(pos, anySquare);
 		if (square == null)
 			return;
 
-		SetMark(pos, _currPlayer, square);
+		SetMark(pos, currPlayer, square);
 
-		_redoActions.RemoveAt(last);
-		_undoActions.Add(pos);
-		GuiController.UndoEnabled = true;
-		GuiController.RedoEnabled = _redoActions.Count > 0;
-	}
+		redoActions.RemoveAt(last);
+		undoActions.Add(pos);
+	    undo.interactable = true;
+	    redo.interactable = redoActions.Count > 0;
+    }
 
 	private void SetPlayerText(Player player)
 	{
-		_currPlayer = player;
-		GuiController.CurrPlayer = player;
-		GuiController.PlayerDisabled = Disabled;
+		currPlayer = player;
+	    playerName.text = player.GetText();
+	    playerName.color = player.GetColor();
+
+	    Color color;
+	    ColorUtility.TryParseHtmlString("#A8FF94FF", out color);
+	    playerPanel.color = disabled ? Color.gray : color;
 	}
 
 	private void DrawLine(WinLine line)
 	{
-		_winnerLine = new GameObject();
-		var sRenderer = _winnerLine.AddComponent<SpriteRenderer>();
+		winnerLine = new GameObject();
+		var sRenderer = winnerLine.AddComponent<SpriteRenderer>();
 		sRenderer.color = new Color(1f, 1f, 1f, .7f);
 
-		_winnerLine.transform.parent = transform;
-		_winnerLine.transform.position = Vector3.Lerp(line.StartPt, line.EndPt, 0.5f) + Vector3.back;
+		winnerLine.transform.parent = transform;
+		winnerLine.transform.position = Vector3.Lerp(line.StartPt, line.EndPt, 0.5f) + Vector3.back;
 
 		if (line.Direction[0] == Board.Direction[0][0])
 			sRenderer.sprite = LineH;
@@ -334,16 +386,16 @@ public class BoardController : TouchController
 		else if (line.Direction[0] == Board.Direction[2][0])
 		{
 			sRenderer.sprite = LineH;
-			_winnerLine.transform.rotation = Quaternion.AngleAxis(-90, Vector3.forward);
+			winnerLine.transform.rotation = Quaternion.AngleAxis(-90, Vector3.forward);
 		}
 		else if (line.Direction[0] == Board.Direction[3][0])
 		{
 			sRenderer.sprite = LineD;
-			_winnerLine.transform.rotation = Quaternion.AngleAxis(-90, Vector3.forward);
+			winnerLine.transform.rotation = Quaternion.AngleAxis(-90, Vector3.forward);
 		}
 	}
 
-	private static int GetLayerFromMask(LayerMask layer)
+	private int GetLayerFromMask(LayerMask layer)
 	{
 		if (layer.value == 0)
 			return 0;
