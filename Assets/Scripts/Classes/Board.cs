@@ -15,10 +15,6 @@ public class Board
 	private Vector2Int offset;
     private readonly ViewBoundsChange viewBoundsChange;
 
-    public Board() : this(0, 0) { }
-
-    public Board(int sizeX, int sizeY) : this(sizeX, sizeY, Vector2Int.Zero) { }
-
     public Board(int sizeX, int sizeY, Vector2Int of)
     {
         location = new Location[sizeX, sizeY];
