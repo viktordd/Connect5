@@ -17,5 +17,7 @@ The game saves all player moves and gives the ability to undo, and redo moves. A
 You would need to download the free version of Unity to run the game locally. https://unity3d.com/ To Run the game locally clone the source code, then open it with Unity.
 
 <img src="/docs/UnityOpen.PNG" alt="open" width="400px">
+
 Open the Connect5 scene under Assets, then hit the play button.
+
 <img src="/docs/Connect5Scene.png" alt="scene" width="400px"> <img src="/docs/Connect5Run.png" alt="run" width="400px">
